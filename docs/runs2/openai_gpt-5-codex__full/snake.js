@@ -1,0 +1,291 @@
+"use strict";
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;
+const SPEEDUP_DELTA = 10;
+class Game {
+    static initialHigh = 0;
+    canvas;
+    ctx;
+    scoreEl;
+    highEl;
+    snake = [];
+    dir = { x: 1, y: 0 };
+    pendingDir = null;
+    nextDir = null;
+    food = { x: 0, y: 0 };
+    score = 0;
+    high = 0;
+    tickMs = INITIAL_TICK_MS;
+    alive = true;
+    started = false;
+    paused = true;
+    timer = null;
+    constructor(canvas, scoreEl, highEl) {
+        this.canvas = canvas;
+        this.scoreEl = scoreEl;
+        this.highEl = highEl;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            throw new Error('Canvas 2D context not available');
+        }
+        this.ctx = ctx;
+        this.ctx.imageSmoothingEnabled = false;
+        this.high = Game.initialHigh;
+        if (!Number.isFinite(this.high) || this.high < 0) {
+            this.high = 0;
+        }
+        this.restart();
+    }
+    start() {
+        if (this.started || !this.alive) {
+            return;
+        }
+        this.started = true;
+        this.paused = false;
+        this.draw();
+        this.scheduleTick();
+    }
+    togglePause() {
+        if (!this.started || !this.alive) {
+            return;
+        }
+        this.paused = !this.paused;
+        if (this.paused) {
+            this.stopTimer();
+            this.draw();
+        }
+        else {
+            this.draw();
+            this.scheduleTick();
+        }
+    }
+    restart() {
+        this.stopTimer();
+        this.snake = [
+            { x: 10, y: 10 },
+            { x: 9, y: 10 },
+            { x: 8, y: 10 },
+        ];
+        this.dir = { x: 1, y: 0 };
+        this.pendingDir = null;
+        this.nextDir = null;
+        this.tickMs = INITIAL_TICK_MS;
+        this.score = 0;
+        this.alive = true;
+        this.started = false;
+        this.paused = true;
+        this.updateScore();
+        this.refreshHigh();
+        this.spawnFood();
+        this.draw();
+    }
+    isStarted() {
+        return this.started;
+    }
+    handleDirection(dir) {
+        if (!this.alive) {
+            return;
+        }
+        const last = this.nextDir ?? this.pendingDir ?? this.dir;
+        if (last.x === dir.x && last.y === dir.y) {
+            return;
+        }
+        if (last.x === -dir.x && last.y === -dir.y) {
+            return;
+        }
+        if (this.pendingDir === null) {
+            this.pendingDir = dir;
+        }
+        else if (this.nextDir === null) {
+            this.nextDir = dir;
+        }
+    }
+    scheduleTick() {
+        this.stopTimer();
+        if (!this.alive || this.paused) {
+            return;
+        }
+        this.timer = window.setTimeout(() => {
+            this.timer = null;
+            this.step();
+        }, this.tickMs);
+    }
+    stopTimer() {
+        if (this.timer !== null) {
+            window.clearTimeout(this.timer);
+            this.timer = null;
+        }
+    }
+    step() {
+        if (!this.alive || this.paused) {
+            return;
+        }
+        if (this.pendingDir !== null) {
+            this.dir = this.pendingDir;
+            this.pendingDir = this.nextDir;
+            this.nextDir = null;
+        }
+        const head = this.snake[0];
+        const nextHead = { x: head.x + this.dir.x, y: head.y + this.dir.y };
+        if (nextHead.x < 0 || nextHead.x >= GRID || nextHead.y < 0 || nextHead.y >= GRID) {
+            this.handleGameOver();
+            return;
+        }
+        const willGrow = nextHead.x === this.food.x && nextHead.y === this.food.y;
+        const segmentsToCheck = willGrow ? this.snake.length : this.snake.length - 1;
+        for (let i = 0; i < segmentsToCheck; i++) {
+            const segment = this.snake[i];
+            if (segment.x === nextHead.x && segment.y === nextHead.y) {
+                this.handleGameOver();
+                return;
+            }
+        }
+        this.snake.unshift(nextHead);
+        if (willGrow) {
+            this.score += 1;
+            this.updateScore();
+            if (this.score > this.high) {
+                this.high = this.score;
+                localStorage.setItem('snake.high', this.high.toString());
+            }
+            this.refreshHigh();
+            if (this.score % SPEEDUP_EVERY === 0) {
+                this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+            }
+            this.spawnFood();
+        }
+        else {
+            this.snake.pop();
+        }
+        this.draw();
+        this.scheduleTick();
+    }
+    handleGameOver() {
+        this.alive = false;
+        this.paused = true;
+        this.pendingDir = null;
+        this.nextDir = null;
+        this.stopTimer();
+        this.draw();
+    }
+    updateScore() {
+        this.scoreEl.textContent = `Score: ${this.score}`;
+    }
+    refreshHigh() {
+        this.highEl.textContent = `High: ${this.high}`;
+    }
+    spawnFood() {
+        const freeCells = [];
+        for (let y = 0; y < GRID; y++) {
+            for (let x = 0; x < GRID; x++) {
+                const occupied = this.snake.some((segment) => segment.x === x && segment.y === y);
+                if (!occupied) {
+                    freeCells.push({ x, y });
+                }
+            }
+        }
+        if (freeCells.length === 0) {
+            this.food = { x: -1, y: -1 };
+            return;
+        }
+        const index = Math.floor(Math.random() * freeCells.length);
+        this.food = freeCells[index];
+    }
+    draw() {
+        const ctx = this.ctx;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        if (this.food.x >= 0 && this.food.y >= 0) {
+            ctx.fillStyle = '#c0392b';
+            ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+        }
+        ctx.fillStyle = '#3aa635';
+        for (let i = 1; i < this.snake.length; i++) {
+            const segment = this.snake[i];
+            ctx.fillRect(segment.x * CELL, segment.y * CELL, CELL, CELL);
+        }
+        if (this.snake.length > 0) {
+            const head = this.snake[0];
+            ctx.fillStyle = '#7ed957';
+            ctx.fillRect(head.x * CELL, head.y * CELL, CELL, CELL);
+        }
+        let overlay = null;
+        if (!this.alive) {
+            overlay = 'Game Over — press R to restart';
+        }
+        else if (this.paused) {
+            overlay = this.started ? 'Paused' : 'Press Space to start';
+        }
+        if (overlay) {
+            ctx.fillStyle = '#fff';
+            ctx.font = '20px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(overlay, this.canvas.width / 2, this.canvas.height / 2);
+        }
+    }
+}
+function parseStoredHigh(value) {
+    if (value === null) {
+        return 0;
+    }
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return 0;
+    }
+    return Math.floor(parsed);
+}
+const canvasElement = document.getElementById('game');
+if (!(canvasElement instanceof HTMLCanvasElement)) {
+    throw new Error('Canvas element not found');
+}
+const scoreElement = document.getElementById('score');
+if (!(scoreElement instanceof HTMLElement)) {
+    throw new Error('Score element not found');
+}
+const highElement = document.getElementById('high');
+if (!(highElement instanceof HTMLElement)) {
+    throw new Error('High element not found');
+}
+const storedHigh = parseStoredHigh(localStorage.getItem('snake.high'));
+Game.initialHigh = storedHigh;
+const game = new Game(canvasElement, scoreElement, highElement);
+const DIR_UP = { x: 0, y: -1 };
+const DIR_DOWN = { x: 0, y: 1 };
+const DIR_LEFT = { x: -1, y: 0 };
+const DIR_RIGHT = { x: 1, y: 0 };
+const DIRECTION_KEYS = {
+    ArrowUp: DIR_UP,
+    KeyW: DIR_UP,
+    ArrowDown: DIR_DOWN,
+    KeyS: DIR_DOWN,
+    ArrowLeft: DIR_LEFT,
+    KeyA: DIR_LEFT,
+    ArrowRight: DIR_RIGHT,
+    KeyD: DIR_RIGHT,
+};
+window.addEventListener('keydown', (e) => {
+    const dir = DIRECTION_KEYS[e.code];
+    if (dir) {
+        e.preventDefault();
+        game.handleDirection(dir);
+        return;
+    }
+    if (e.code === 'Space') {
+        e.preventDefault();
+        if (!game.isStarted()) {
+            game.start();
+        }
+        else {
+            game.togglePause();
+        }
+        return;
+    }
+    if (e.code === 'KeyR') {
+        e.preventDefault();
+        game.restart();
+    }
+});

@@ -1,0 +1,10 @@
+{
+  "model": "google/gemma-4-26b-a4b-it",
+  "role": "full",
+  "durationMs": 79236,
+  "promptEvalCount": 1477,
+  "evalCount": 2740,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T20:33:40.981Z",
+  "promptSource": "prompts/snake-spec.md"
+}

@@ -1,0 +1,819 @@
+The user wants a Snake game implemented in vanilla TypeScript and HTML5 Canvas.
+The constraints are specific:
+1.  **Files**: `index.html` and `snake.ts`.
+2.  **Script Loading**: HTML must use `<script src="snake.js" defer></script>`.
+3.  **Compilation**: Must compile with `tsc --target ES2022 --module ES2022 --strict`. This implies no `implicit any`, strict null checks, etc. It also means I shouldn't use DOM types that are too old or missing, but ES2022 is modern enough. Since it's browser globals only and no modules, I don't need `export` or `import`.
+4.  **Gameplay**: Arrow keys, visible score, game-over on wall/self collision.
+5.  **UI**: Must contain the literal word "Score".
+6.  **Output**: Exactly two fenced code blocks, HTML first, then TypeScript.
+
+**Plan:**
+
+**1. `index.html`**
+*   Standard HTML5 boilerplate.
+*   A container for the game and score.
+*   Canvas element.
+*   A div or span for the score, containing the word "Score".
+*   The script tag pointing to `snake.js` with `defer`.
+
+**2. `snake.ts`**
+*   **Types**: I need to define interfaces or types for the Snake segment (x, y), Direction, and maybe Game State.
+*   **Constants**: Grid size, Canvas dimensions, Game speed (interval).
+*   **State Variables**:
+    *   `snake`: Array of segments.
+    *   `food`: Position.
+    *   `direction`: Current direction.
+    *   `nextDirection`: Buffer for input to prevent 180 turns in a single frame.
+    *   `score`: Number.
+    *   `gameOver`: Boolean.
+    *   `lastTime`: For game loop (or use `setInterval` for simplicity, though `requestAnimationFrame` is smoother. The prompt doesn't specify loop type, but `setInterval` is easier for fixed-step snake. Let's stick to a simple loop or interval).
+*   **Setup**:
+    *   Get canvas context.
+    *   Initialize snake in the middle.
+    *   Place first food.
+    *   Attach event listener for keydown.
+*   **Input Handling**:
+    *   Prevent default scrolling.
+    *   Update `nextDirection` ensuring it's not opposite to current `direction`.
+*   **Game Logic (Update)**:
+    *   If game over, stop or reset (prompt implies "Game-over", usually means stop or show message. I'll stop the loop and show a message).
+    *   Update direction from buffer.
+    *   Calculate new head position based on direction.
+    *   Check collisions:
+        *   Wall: x < 0 or x >= width, etc.
+        *   Self: iterate through snake body.
+    *   If collision -> Game Over.
+    *   If food eaten:
+        *   Increment score.
+        *   Update DOM.
+        *   Grow snake (don't remove tail).
+        *   Spawn new food.
+    *   Else:
+        *   Move snake (add head, remove tail).
+*   **Rendering (Draw)**:
+    *   Clear canvas.
+    *   Draw grid (optional, but nice).
+    *   Draw food.
+    *   Draw snake.
+*   **Strict Mode Checks**:
+    *   Ensure variables are initialized before use.
+    *   Ensure canvas context is not null (type assertion or check).
+    *   No `any` types.
+
+**Refining TypeScript for Strict Mode:**
+*   `document.getElementById` returns `HTMLElement | null`. I need to handle the null case or cast it. Since this is a specific requirement for a game, I'll assume the HTML structure is correct but write safe code.
+*   `canvas.getContext('2d')` returns `RenderingContext | null`. Need to check.
+
+**Code Structure:**
+
+```typescript
+// Constants
+const GRID_SIZE = 20;
+const CANVAS_SIZE = 400; // 20x20 grid
+
+// Interfaces
+interface Position {
+    x: number;
+    y: number;
+}
+
+type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
+
+// Game State
+let snake: Position[] = [];
+let food: Position = { x: 0, y: 0 };
+let direction: Direction = 'RIGHT';
+let nextDirection: Direction = 'RIGHT';
+let score: number = 0;
+let gameOver: boolean = false;
+
+// DOM Elements
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+const scoreElement = document.getElementById('scoreValue');
+
+// ... logic ...
+```
+
+Wait, `tsc --target ES2022 --module ES2022` usually implies the file is a module if it contains top-level `import/export`. If there are no imports/exports, it's treated as a script (global scope). The prompt says "Do not import anything". So it will be a script. This is fine.
+
+**Implementation Details:**
+*   **Grid**: 20x20 pixels per cell.
+*   **Snake**: Start with length 3.
+*   **Food**: Random position not on snake.
+*   **Loop**: `setInterval` is easiest for Snake to ensure consistent speed regardless of rendering performance.
+
+**Drafting the TS code:**
+
+```typescript
+const canvas: HTMLCanvasElement = document.getElementById('gameCanvas') as HTMLCanvasElement;
+const ctx: CanvasRenderingContext2D = canvas.getContext('2d')!;
+const scoreDisplay: HTMLElement = document.getElementById('scoreDisplay')!;
+
+// ... variables ...
+
+function init(): void {
+    // reset vars
+    // start interval
+}
+
+function update(): void {
+    // logic
+}
+
+function draw(): void {
+    // rendering
+}
+```
+
+I need to handle the `null` possibility for `getElementById` to satisfy strict mode without `!` if I want to be purely safe, or use `!` if I'm confident. The prompt asks for "compile cleanly", `!` is clean, but checking is safer. I'll use `!` for brevity and clarity assuming the HTML matches.
+
+**Collision Logic:**
+*   Wall: `head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount`.
+*   Self: `snake.some(segment => segment.x === head.x && segment.y === head.y)`.
+
+**Input:**
+*   `window.addEventListener('keydown', ...)`
+*   Map Arrow keys to Direction strings.
+*   Prevent reversing direction.
+
+**Score:**
+*   Update `innerText` of the score element.
+
+**Game Over:**
+*   Stop interval.
+*   Draw "Game Over" text on canvas.
+
+Let's write the code.
+
+**HTML:**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Snake Game</title>
+    <style>
+        body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
+        canvas { border: 2px solid black; background-color: #f0f0f0; }
+        #scoreBoard { margin: 10px; font-size: 20px; }
+    </style>
+</head>
+<body>
+    <div id="scoreBoard">Score: <span id="score">0</span></div>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <script src="snake.js" defer></script>
+</body>
+</html>
+```
+Note: The prompt requires the literal word "Score". `<div>Score: <span...` satisfies this.
+
+**TS:**
+I need to ensure `tsc` compiles it.
+`const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;` -> strict checks might complain if `document.getElementById` returns null. I will add a check or use the non-null assertion operator `!`. Given "compile cleanly", `!` is standard for known-present elements in simple apps.
+
+Wait, `module ES2022`. If I don't use imports/exports, `tsc` treats it as a script. That's what "Do not import anything" implies.
+
+Let's refine the TS logic.
+
+```typescript
+// Configuration
+const TILE_SIZE = 20;
+const GRID_WIDTH = 20;
+const GRID_HEIGHT = 20;
+const GAME_SPEED = 100; // ms
+
+// Types
+interface Point {
+    x: number;
+    y: number;
+}
+
+type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
+
+// State
+let snake: Point[] = [];
+let food: Point = { x: 0, y: 0 };
+let currentDirection: Direction = 'RIGHT';
+let nextDirection: Direction = 'RIGHT';
+let score = 0;
+let gameInterval: number | undefined;
+let isGameOver = false;
+
+// DOM
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+const scoreElement = document.getElementById('score');
+
+if (canvas) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+        // Initialize game
+        initGame(ctx);
+    }
+}
+
+function initGame(ctx: CanvasRenderingContext2D): void {
+    // Reset state
+    snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+    currentDirection = 'RIGHT';
+    nextDirection = 'RIGHT';
+    score = 0;
+    isGameOver = false;
+    updateScore();
+
+    placeFood();
+
+    if (gameInterval) clearInterval(gameInterval);
+    gameInterval = setInterval(() => gameLoop(ctx), GAME_SPEED);
+}
+
+function gameLoop(ctx: CanvasRenderingContext2D): void {
+    if (isGameOver) return;
+
+    update();
+    draw(ctx);
+}
+
+function update(): void {
+    currentDirection = nextDirection;
+
+    const head = { ...snake[0] }; // Copy head
+
+    switch (currentDirection) {
+        case 'UP': head.y--; break;
+        case 'DOWN': head.y++; break;
+        case 'LEFT': head.x--; break;
+        case 'RIGHT': head.x++; break;
+    }
+
+    // Check collisions
+    if (checkCollision(head)) {
+        isGameOver = true;
+        // Draw game over logic here or in draw
+        return;
+    }
+
+    snake.unshift(head); // Add new head
+
+    if (head.x === food.x && head.y === food.y) {
+        score++;
+        updateScore();
+        placeFood();
+    } else {
+        snake.pop(); // Remove tail if no food eaten
+    }
+}
+
+function checkCollision(head: Point): boolean {
+    // Wall collision
+    if (head.x < 0 || head.x >= GRID_WIDTH || head.y < 0 || head.y >= GRID_HEIGHT) {
+        return true;
+    }
+    // Self collision (check against current snake, head isn't added yet)
+    for (const segment of snake) {
+        if (segment.x === head.x && segment.y === head.y) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function placeFood(): void {
+    while (true) {
+        const x = Math.floor(Math.random() * GRID_WIDTH);
+        const y = Math.floor(Math.random() * GRID_HEIGHT);
+        
+        // Check if food is on snake
+        let onSnake = false;
+        for (const segment of snake) {
+            if (segment.x === x && segment.y === y) {
+                onSnake = true;
+                break;
+            }
+        }
+        
+        if (!onSnake) {
+            food = { x, y };
+            break;
+        }
+    }
+}
+
+function draw(ctx: CanvasRenderingContext2D): void {
+    // Clear canvas
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas!.width, canvas!.height);
+
+    if (isGameOver) {
+        ctx.fillStyle = 'red';
+        ctx.font = '30px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Game Over', canvas!.width / 2, canvas!.height / 2);
+        return;
+    }
+
+    // Draw Food
+    ctx.fillStyle = 'red';
+    ctx.fillRect(food.x * TILE_SIZE, food.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+
+    // Draw Snake
+    ctx.fillStyle = 'green';
+    for (const segment of snake) {
+        ctx.fillRect(segment.x * TILE_SIZE, segment.y * TILE_SIZE, TILE_SIZE - 1, TILE_SIZE - 1);
+    }
+}
+
+function updateScore(): void {
+    if (scoreElement) {
+        scoreElement.innerText = score.toString();
+    }
+}
+
+// Input Handling
+window.addEventListener('keydown', (e: KeyboardEvent) => {
+    switch (e.key) {
+        case 'ArrowUp':
+            if (currentDirection !== 'DOWN') nextDirection = 'UP';
+            break;
+        case 'ArrowDown':
+            if (currentDirection !== 'UP') nextDirection = 'DOWN';
+            break;
+        case 'ArrowLeft':
+            if (currentDirection !== 'RIGHT') nextDirection = 'LEFT';
+            break;
+        case 'ArrowRight':
+            if (currentDirection !== 'LEFT') nextDirection = 'RIGHT';
+            break;
+    }
+});
+```
+
+**Review against constraints:**
+*   Two files: Yes.
+*   `script src="snake.js" defer`: Yes.
+*   `tsc --target ES2022 --module ES2022 --strict`:
+    *   `snake` array initialization: `let snake: Point[] = []`. It's initialized empty, but `initGame` fills it. `snake[0]` is accessed in `update`. If `update` runs before `initGame`, crash. But `initGame` sets the interval. Wait, `snake` is defined globally. `update` is called inside `setInterval` inside `initGame`. So `snake` is populated. However, `snake[0]` access in `update` needs care.
+    *   In `update`: `const head = { ...snake[0] }`. TS strict checks might complain if `snake` could be empty. `initGame` sets it to length 3. So it's fine.
+    *   `canvas` variable: `const canvas = ... as HTMLCanvasElement | null`. I used `canvas!.width` in `draw`. This requires `canvas` to be non-null. Since `draw` is called from `initGame` which checks `canvas`, it is safe.
+    *   Implicit any: I used explicit types for interfaces and arguments. `e: KeyboardEvent`.
+    *   No imports: Yes.
+*   Arrow keys: Yes.
+*   Visible score: Yes.
+*   Game-over: Yes.
+*   Word "Score": Yes.
+
+One small fix: `snake.ts` needs to handle the case where `canvas` or `ctx` might be null to satisfy strict null checks without `!` everywhere, or use `!` where guaranteed.
+In `draw`, I used `canvas!.width`. `canvas` is captured in the outer scope.
+Actually, `initGame` is called inside `if (canvas)`. So inside `initGame`, `canvas` is definitely not null. But `draw` takes `ctx` as argument. It doesn't have `canvas` in scope unless passed.
+I should pass `canvas` to `draw` or `initGame` can capture `canvas` variable.
+Actually, `canvas` is a `const` in global scope.
+If I do:
+```typescript
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+// ...
+if (canvas) {
+   // ...
+   function draw() { ... canvas.width ... }
+}
+```
+This works. But `draw` is better as a standalone function.
+Let's pass `canvas` to `draw` or just use the global `canvas` variable with `!` assertion inside `draw` because `draw` is only called if `canvas` exists.
+Actually, `draw` is called inside `gameLoop` which is inside `initGame` which is inside `if(canvas)`. So `canvas` is definitely not null.
+However, TypeScript flow analysis doesn't always propagate into callbacks or closures perfectly for globals.
+I will pass `canvas` to `draw` to be safe and clean.
+
+Revised `draw` signature: `function draw(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void`.
+Revised `gameLoop`: `gameLoop(ctx, canvas)`.
+
+Wait, `snake.ts` must compile cleanly.
+`const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;`
+If I use `!` inside `draw` (which is called only when canvas exists), it compiles fine.
+If I pass `canvas` to `draw`, it's also fine.
+
+Let's stick to passing arguments to be strictly correct and avoid non-null assertions where possible, though `!` is idiomatic for DOM elements in simple scripts.
+
+One detail: `snake.ts` must compile with `--module ES2022`.
+This means `tsc` will emit `snake.js` with `export`/`import` syntax if present. Since I have none, it emits standard JS.
+However, `--module ES2022` usually implies the file is a module. If there are no imports/exports, it's a script.
+If `tsc` treats it as a script, `snake.js` will just be the code.
+If `tsc` treats it as a module (because of some configuration or inference), it might wrap it.
+But standard `tsc` on a file with no imports/exports treats it as a global script file.
+Wait, `--module ES2022` forces module output. If the file has no imports/exports, does it still output `export {}`?
+Actually, if you use `--module` flags, TS assumes the file is a module.
+If I don't have any imports/exports, TS might error or just output the code.
+Actually, if you specify `--module`, the file is considered a module.
+If I write a file with no imports/exports, it's a "script" in TS terminology, but `--module` is for modules.
+Let's check: If I run `tsc --module ES2022 file.ts`, and `file.ts` has no imports/exports.
+TS docs say: "A file is considered a module if it has at least one import or export statement."
+If it's not a module, `--module` setting might be ignored or used for output format (ESM syntax).
+Actually, `tsc` will emit `snake.js`. If I use `--module ES2022`, it outputs ES modules syntax (e.g. `import`/`export`).
+Since I have no imports/exports, it will just output the code.
+Wait, if I use `--module ES2022`, does it force me to have exports?
+No. It just sets the output format.
+However, browsers using `<script src="snake.js">` (without `type="module"`) expect a script, not a module.
+If `snake.js` is a module (ES2022 output usually implies strict mode and module scope), the HTML needs `<script type="module" src="snake.js"></script>`.
+The prompt says: `The HTML must load the compiled JS via <script src="snake.js" defer></script>`.
+This implies the output must be a **script**, not a module (no `type="module"`).
+If `tsc` compiles with `--module ES2022`, does it output `export {}`?
+If the input has no imports/exports, `tsc` treats it as a script (global scope), even if `--module` is set?
+Let's verify this behavior.
+If I compile a file with no imports/exports using `tsc --module ES2022`, the output is just the code. It doesn't add `export {}`.
+However, if I use `--module ES2022`, `this` behavior changes, etc.
+But crucially, if the HTML uses `<script src="snake.js" defer>`, it loads it as a classic script.
+So `snake.ts` must not contain top-level imports/exports.
+My code has no imports/exports. So it is a global script.
+This satisfies the requirement.
+
+One specific check: `tsc --target ES2022 --module ES2022 --strict`.
+Does `snake.ts` compile?
+`const canvas = ...` returns `HTMLElement | null`.
+I cast it `as HTMLCanvasElement | null`.
+I check `if (canvas)`.
+Inside `if (canvas)`, `canvas` is `HTMLCanvasElement`.
+I pass it to `initGame`.
+Inside `initGame`, `canvas` is `HTMLCanvasElement`.
+I pass it to `gameLoop`.
+Inside `gameLoop`, I pass it to `draw`.
+This chain ensures type safety.
+
+Let's refine the code structure to be self-contained and clean.
+
+```typescript
+// snake.ts
+
+// Type definitions
+interface Position {
+    x: number;
+    y: number;
+}
+
+type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
+
+// Game constants
+const TILE_COUNT = 20;
+const TILE_SIZE = 20;
+const CANVAS_SIZE = TILE_COUNT * TILE_SIZE;
+const INITIAL_SPEED = 120;
+
+// Game state variables
+let snake: Position[] = [];
+let food: Position = { x: 0, y: 0 };
+let direction: Direction = 'RIGHT';
+let nextDirection: Direction = 'RIGHT';
+let score: number = 0;
+let gameOver: boolean = false;
+let gameIntervalId: number | undefined;
+
+// DOM Elements
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+const scoreElement = document.getElementById('score');
+
+// Main execution
+if (canvas) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+        // Initialize game immediately
+        startGame(canvas, ctx);
+    }
+}
+
+function startGame(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): void {
+    // Reset state
+    snake = [
+        { x: 10, y: 10 },
+        { x: 9, y: 10 },
+        { x: 8, y: 10 }
+    ];
+    direction = 'RIGHT';
+    nextDirection = 'RIGHT';
+    score = 0;
+    gameOver = false;
+    updateScoreDisplay();
+    placeFood();
+
+    // Setup input
+    window.addEventListener('keydown', handleKeyPress);
+
+    // Start loop
+    if (gameIntervalId !== undefined) clearInterval(gameIntervalId);
+    gameIntervalId = window.setInterval(() => gameLoop(canvas, ctx), INITIAL_SPEED);
+}
+
+function gameLoop(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): void {
+    if (gameOver) {
+        drawGameOver(ctx, canvas);
+        return;
+    }
+    
+    update();
+    draw(ctx, canvas);
+}
+
+function update(): void {
+    direction = nextDirection;
+    
+    const head = snake[0];
+    const newHead: Position = { x: head.x, y: head.y };
+
+    switch (direction) {
+        case 'UP': newHead.y--; break;
+        case 'DOWN': newHead.y++; break;
+        case 'LEFT': newHead.x--; break;
+        case 'RIGHT': newHead.x++; break;
+    }
+
+    // Check Wall Collision
+    if (newHead.x < 0 || newHead.x >= TILE_COUNT || newHead.y < 0 || newHead.y >= TILE_COUNT) {
+        gameOver = true;
+        return;
+    }
+
+    // Check Self Collision
+    for (const segment of snake) {
+        if (segment.x === newHead.x && segment.y === newHead.y) {
+            gameOver = true;
+            return;
+        }
+    }
+
+    snake.unshift(newHead);
+
+    // Check Food
+    if (newHead.x === food.x && newHead.y === food.y) {
+        score++;
+        updateScoreDisplay();
+        placeFood();
+    } else {
+        snake.pop();
+    }
+}
+
+function draw(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
+    // Clear
+    ctx.fillStyle = '#eee';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Food
+    ctx.fillStyle = 'red';
+    ctx.fillRect(food.x * TILE_SIZE, food.y * TILE_SIZE, TILE_SIZE - 2, TILE_SIZE - 2);
+
+    // Draw Snake
+    ctx.fillStyle = '#333';
+    for (const segment of snake) {
+        ctx.fillRect(segment.x * TILE_SIZE, segment.y * TILE_SIZE, TILE_SIZE - 2, TILE_SIZE - 2);
+    }
+}
+
+function drawGameOver(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = 'white';
+    ctx.font = '40px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2);
+}
+
+function placeFood(): void {
+    let newFood: Position;
+    let validPosition = false;
+
+    while (!validPosition) {
+        newFood = {
+            x: Math.floor(Math.random() * TILE_COUNT),
+            y: Math.floor(Math.random() * TILE_COUNT)
+        };
+
+        validPosition = true;
+        for (const segment of snake) {
+            if (segment.x === newFood.x && segment.y === newFood.y) {
+                validPosition = false;
+                break;
+            }
+        }
+    }
+    // TS strict checks: newFood is used before defined?
+    // No, it's defined in the loop scope. But TS might complain about 'newFood' being used outside if I declare it outside.
+    // Better structure:
+    // ...
+    food = newFood!; // It is definitely assigned because loop runs until valid.
+}
+```
+Wait, `placeFood` logic needs to be strictly correct for TS.
+```typescript
+function placeFood(): void {
+    while (true) {
+        const x = Math.floor(Math.random() * TILE_COUNT);
+        const y = Math.floor(Math.random() * TILE_COUNT);
+        
+        let collision = false;
+        for (const segment of snake) {
+            if (segment.x === x && segment.y === y) {
+                collision = true;
+                break;
+            }
+        }
+
+        if (!collision) {
+            food = { x, y };
+            return;
+        }
+    }
+}
+```
+This is cleaner and avoids "variable used before assigned" issues.
+
+Input handling:
+```typescript
+function handleKeyPress(e: KeyboardEvent): void {
+    switch (e.key) {
+        case 'ArrowUp':
+            if (direction !== 'DOWN') nextDirection = 'UP';
+            break;
+        case 'ArrowDown':
+            if (direction !== 'UP') nextDirection = 'DOWN';
+            break;
+        case 'ArrowLeft':
+            if (direction !== 'RIGHT') nextDirection = 'LEFT';
+            break;
+        case 'ArrowRight':
+            if (direction !== 'LEFT') nextDirection = 'RIGHT';
+            break;
+    }
+}
+```
+
+Score update:
+```typescript
+function updateScoreDisplay(): void {
+    if (scoreElement) {
+        scoreElement.innerText = score.toString();
+    }
+}
+```
+
+Final check on `index.html`:
+The prompt requires `<script src="snake.js" defer></script>`.
+I will ensure the HTML matches this exactly.
+
+Final check on `snake.ts`:
+*   `tsc --target ES2022 --module ES2022 --strict`.
+*   `noImplicitAny`: All types are explicit or inferred correctly.
+*   `strictNullChecks`: Handled `null` for canvas and context.
+*   No imports.
+
+One detail: `window.setInterval` returns a `number`. In Node it returns `NodeJS.Timeout` (object), but in browser environment (which TS assumes if DOM lib is present, or we are targeting browser), it's `number`. `tsc` default lib includes `dom`? The prompt says "Browser globals only". `tsc` usually needs `lib: ["ES2022", "DOM"]` to know `document` or `window` exists.
+If I run `tsc --target ES2022`, does it include DOM?
+Default `lib` behavior: If `target` is ES2022, `lib` defaults to `ES2022`. It does **not** include DOM by default unless specified.
+Wait. If I don't specify `lib`, and target is ES2022, TS only knows ES2022 features. It won't know `document`, `window`, `HTMLCanvasElement`.
+This will cause compilation errors: "Cannot find name 'document'".
+The prompt says: "Browser globals only."
+It does **not** say I can't use a `tsconfig.json`.
+But it says "compile cleanly with `tsc --target ES2022 --module ES2022 --strict`". It lists specific flags. It does not list `--lib`.
+If I run `tsc snake.ts --target ES2022 --module ES2022 --strict` on the command line without `--lib`, will it fail?
+Yes, standard `tsc` behavior is that `lib` defaults to target. It does not auto-include DOM.
+However, usually, people use `tsconfig.json`.
+If the prompt implies running the command exactly as stated, I might have a problem with DOM types.
+BUT, the prompt says "Browser globals only". This is a hint about the environment.
+Does `tsc` have a default that includes DOM? No.
+Maybe the prompt assumes I will add `--lib ES2022,DOM`? Or maybe the prompt assumes `tsc` is smart enough?
+Actually, if I don't specify `lib`, `tsc` defaults to libraries for the target.
+Wait, if I look at `tsc` documentation: "The default library is the target."
+So `document` is unknown.
+If I cannot modify the command line arguments provided in the prompt, I cannot compile code using `document`.
+Is there a way to satisfy this?
+Maybe the prompt implies I should write the code, and the user will run it with the correct environment?
+"snake.ts must compile cleanly with..."
+If I strictly follow the command provided: `tsc --target ES2022 --module ES2022 --strict`.
+This command does NOT include DOM types.
+So `document.getElementById` will error.
+Unless... I am expected to provide a `tsconfig.json`?
+"Two files: index.html and snake.ts". It explicitly limits the files.
+This is a contradiction or a trick.
+"Browser globals only" -> The code uses them.
+"Compile cleanly with [command]" -> The command excludes DOM lib.
+How to resolve?
+1.  Assume the user has a `tsconfig.json` that includes DOM? But "Two files" constraint.
+2.  Assume the environment has the types globally? Unlikely.
+3.  Maybe the prompt implies I should add `--lib ES2022,DOM` to the command?
+    "snake.ts must compile cleanly with `tsc --target ES2022 --module ES2022 --strict`"
+    This sounds like a test requirement.
+    If I write `snake.ts` using `document`, it fails with that specific command.
+    Is there a way to declare `document`?
+    I can declare `const document: any`? No, that's implicit any or requires declaration.
+    I can declare `declare var document: Document;`?
+    If I do that, I need the `Document` type. Which is in DOM lib.
+    If I use `any` for everything DOM, I violate `strict` (no implicit any) or I have to type it explicitly.
+    `const canvas = (document as any).getElementById(...)`.
+    This satisfies the compiler because `any` bypasses property checks.
+    Does `strict` mode forbid `any`?
+    `strict` enables `noImplicitAny`. It does not forbid explicit `any`.
+    So, I can use `any` for DOM globals to bypass the missing `--lib DOM` issue.
+    This seems to be the intended solution for "compile cleanly with [flags missing DOM]".
+    
+    Let's try to use `any` for globals.
+    `declare const document: any;`
+    `declare const window: any;`
+    Then `document.getElementById(...)` works.
+    And `canvas.getContext('2d')` returns `any` (if `document` is `any`).
+    Then I can cast it or use it.
+    This satisfies:
+    1. No imports (I declare it locally).
+    2. Compiles with the specific flags (no DOM lib needed).
+    3. Browser globals (I use them).
+    
+    Let's refine this approach.
+    I will declare `document` and `window` as `any` at the top of `snake.ts`.
+    This is a common workaround for strict environments without full lib definitions.
+
+    Wait, `tsc` default behavior might be different.
+    If I run `tsc --init`, it creates `tsconfig.json` with `lib: ["dom", ...]`.
+    But the prompt specifies the command line.
+    Okay, I will use the `declare var` trick.
+
+    Actually, looking at the prompt again: "Browser globals only."
+    It might just be describing the environment, not a constraint on `lib`.
+    But the command is explicit.
+    If I provide code that relies on DOM types, and the user runs that command, it fails.
+    So I must make it compile without DOM types.
+    Using `any` for globals is the robust way.
+
+    Revised TS start:
+    ```typescript
+    // Polyfill/Declare globals for compilation without --lib DOM
+    declare var document: any;
+    declare var window: any;
+    
+    // ... code ...
+    ```
+    Wait, `KeyboardEvent` is also a DOM type.
+    I'll need to use `any` for the event type in the handler too.
+    `window.addEventListener('keydown', (e: any) => { ... })`.
+    This works.
+
+    Let's verify strictness.
+    `strict` implies `noImplicitAny`.
+    If I use `any` explicitly, it's allowed.
+    If I use `e: any`, it's allowed.
+    
+    Is there a cleaner way?
+    Maybe the prompt assumes `tsc` finds `tsconfig.json`?
+    "Two files: index.html and snake.ts".
+    If I don't provide `tsconfig.json`, `tsc` uses defaults.
+    If the user runs the command provided, they use defaults.
+    So I must write code compatible with defaults (ES2022 lib only).
+    
+    So, `declare var document: any;` is the correct path.
+
+    One more check: `setInterval`.
+    In ES2022 (without DOM), `setInterval` might not be defined?
+    `setInterval` and `clearInterval` are part of the `lib` definition.
+    Standard `lib ES2022` includes `setTimeout`, `setInterval` via the web timers definition usually included in standard TS libs?
+    Actually, `lib` can be `ES2022`.
+    `setTimeout`/`setInterval` are technically on `Window` or `GlobalThis`.
+    In Node, they exist. In Browser, they exist.
+    TS `lib ES2022` usually includes `Scheduling` or similar interfaces?
+    Actually, `lib: ["ES2022"]` does NOT include `setTimeout`.
+    So I might need `declare function setInterval(callback: any, ms: number): number;`?
+    Or just use `window.setInterval`.
+    Since I'm declaring `window: any`, `window.setInterval` works and returns `any`.
+    This is safer.
+
+    So, strategy:
+    1. `declare var document: any;`
+    2. `declare var window: any;`
+    3. Use `window.setInterval` and `window.addEventListener`.
+    4. Use `any` for event object in handler.
+    5. Use `any` for canvas context if needed, or cast to `any`.
+    
+    Wait, if I use `any` for everything, I lose type checking.
+    But I satisfy the compilation constraint.
+    The prompt asks for "vanilla TypeScript".
+    Usually, this implies using the types.
+    But the command line constraint is strong.
+    I will write the code using `any` for DOM interfaces to ensure it compiles with the provided flags.
+
+    Let's double check if `tsc` includes DOM by default when target is ES2022.
+    Documentation says: "The default library is the target."
+    It does NOT include DOM.
+    So my assumption holds.
+
+    Code plan:
+    ```typescript
+    declare var document: any;
+    declare var window: any;
+
+    const canvas: any = document.getElementById('gameCanvas');
+    const scoreElement: any = document.getElementById('score');
+    // ...
+    const ctx = canvas.getContext('2d'); // ctx is any
+    // ...
+    window.addEventListener('keydown', (e: any) => { ... });
+    // ...
+    const intervalId = window.setInterval(() => ..., 100);
+    ```
+
+    This looks robust for the specific constraints.
+
+    One final check: "Output exactly two fenced code blocks".
+    I will format the output accordingly.

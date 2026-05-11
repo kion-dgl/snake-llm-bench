@@ -1,0 +1,183 @@
+We need to fix the TypeScript strict null checks errors. The errors are:
+
+- `canvas` is possibly null at lines 44, 61 (in draw and update? Actually line numbers in the error: 44, 61, 101). Let's check the original code. The original code has:
+
+```
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+if (!canvas) throw new Error('Canvas element not found');
+const ctx = canvas.getContext('2d');
+if (!ctx) throw new Error('2D context not available');
+```
+
+But then later in `draw()` and `update()` they use `canvas` directly. The error says line 44: `canvas` is possibly null. In the original code, line 44 is inside `draw()`: `ctx.fillRect(0, 0, canvas.width, canvas.height);` and line 61 is `ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2);`. Also line 101: `scoreElement.textContent = ...` where `scoreElement` is possibly null.
+
+The issue: after the initial null checks, TypeScript narrows the types of `canvas` and `ctx` and `scoreElement` only within the scope where the checks are performed. But later in functions, TypeScript doesn't remember that the variables are non-null because they could be reassigned (they are `let` or `const` but the narrowing doesn't persist across function boundaries). Actually, `canvas` is a `const` but its type is `HTMLCanvasElement | null`. After the `if (!canvas) throw` check, TypeScript narrows `canvas` to `HTMLCanvasElement` for the rest of the top-level scope. However, inside a function like `draw()`, TypeScript does not know that the function will only be called after the check, because the function could be called before the check (though it's not). But TypeScript's control flow analysis doesn't propagate narrowing into closures unless the variable is `const` and the function is defined after the check? Actually, TypeScript does narrow `const` variables in closures if the check is in the same scope and the variable is not reassigned. But the problem is that `canvas` is declared with `as HTMLCanvasElement | null` and then checked. That should narrow it for the rest of the file. However, the error indicates it's not narrowed. Let's examine: The code:
+
+```
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+if (!canvas) throw new Error('Canvas element not found');
+const ctx = canvas.getContext('2d');
+if (!ctx) throw new Error('2D context not available');
+```
+
+After the `if (!canvas) throw`, `canvas` is narrowed to `HTMLCanvasElement`. Then `ctx` is declared. Then later functions `draw` and `update` use `canvas` and `ctx`. Since `canvas` is a `const` and never reassigned, TypeScript should know it's not null. But the error says line 44: `canvas` is possibly null. That suggests that the narrowing might not be working because the `if` check is not recognized as a type guard? Wait, `!canvas` is a truthiness check, which narrows `HTMLCanvasElement | null` to `HTMLCanvasElement`. That should work. However, the error might be because the `canvas` variable is used inside a function that is defined before the check? No, the functions are defined after the check. The order: variable declarations, null checks, then function definitions, then event listeners, then draw() and startGame(). So the functions are defined after the checks, so they should see the narrowed type. But TypeScript's control flow analysis for closures: if a variable is `const` and its type is narrowed in the outer scope, the narrowed type is captured in the closure. That's standard. So why the error? Possibly because the code uses `canvas` inside `draw` and `update` but the `canvas` variable is declared with `as HTMLCanvasElement | null` and then the `if` check is there, but maybe the `if` check is not considered a type guard because it's a simple `if (!canvas) throw`? That is a type guard. I'm confused.
+
+Let's look at the exact line numbers from the error message: 
+```
+runs/deepseek-v4-pro_cloud__full/snake.ts(44,24): error TS18047: 'canvas' is possibly 'null'.
+runs/deepseek-v4-pro_cloud__full/snake.ts(44,38): error TS18047: 'canvas' is possibly 'null'.
+runs/deepseek-v4-pro_cloud__full/snake.ts(61,35): error TS18047: 'canvas' is possibly 'null'.
+runs/deepseek-v4-pro_cloud__full/snake.ts(61,53): error TS18047: 'canvas' is possibly 'null'.
+runs/deepseek-v4-pro_cloud__full/snake.ts(101,9): error TS18047: 'scoreElement' is possibly 'null'.
+```
+
+Line 44 in the original code: `ctx.fillRect(0, 0, canvas.width, canvas.height);` (two uses of canvas.width and canvas.height). Line 61: `ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2);` (two uses). Line 101: `scoreElement.textContent = ...`. So indeed, TypeScript thinks `canvas` and `scoreElement` might be null. The reason is that the null checks are done, but the variables are declared with `const` and then checked. However, the `if (!canvas) throw` is a throw statement, which tells TypeScript that after that line, `canvas` is not null. That should work. But maybe the issue is that the `canvas` variable is used inside a function that is defined before the check? No, functions are defined after. Let's check the original code structure:
+
+```
+const canvas = ...;
+if (!canvas) throw ...;
+const ctx = canvas.getContext('2d');
+if (!ctx) throw ...;
+const scoreElement = ...;
+if (!scoreElement) throw ...;
+
+// ... constants ...
+
+let snake = ...;
+// ...
+
+function randomFoodPosition() { ... }
+function draw() { ... } // uses canvas, ctx
+function update() { ... } // uses scoreElement, canvas, ctx
+function stopGame() { ... }
+function startGame() { ... }
+
+document.addEventListener(...);
+draw();
+startGame();
+```
+
+All functions are defined after the null checks. So TypeScript should narrow the types. But maybe the problem is that `canvas` is used inside `draw` and `update` but the `canvas` variable is not captured as narrowed because the narrowing only applies to the immediate scope after the check, and functions defined later capture the narrowed type? Actually, TypeScript's narrowing for `const` variables does propagate into closures defined in the same scope after the narrowing. For example:
+
+```
+const x: string | null = "hello";
+if (!x) throw new Error();
+function foo() { console.log(x.length); } // OK
+```
+
+This compiles fine. So why does the original code fail? Possibly because the original code uses `as HTMLCanvasElement | null` which is a type assertion, but that shouldn't matter. Or maybe the `if (!canvas) throw` is not considered a type guard because `throw` is not a return? It is. I think the error might be due to the fact that the `canvas` variable is used inside `draw` and `update` but the `canvas` variable is declared with `const` and then later there is a `canvas` property? No.
+
+Wait, the error message says `TS18047: 'canvas' is possibly 'null'`. This is a strict null check error. It means TypeScript thinks `canvas` could be null at those points. The only way that could happen is if the narrowing didn't occur. Perhaps the original code had a different structure? The user provided the exact code. Let's re-read the code snippet they gave. It's:
+
+```typescript
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+if (!canvas) throw new Error('Canvas element not found');
+const ctx = canvas.getContext('2d');
+if (!ctx) throw new Error('2D context not available');
+
+const scoreElement = document.getElementById('score');
+if (!scoreElement) throw new Error('Score element not found');
+```
+
+Then later `draw` uses `canvas.width` and `canvas.height`. That should be fine. But maybe the issue is that `canvas` is used inside `draw` before the `if (!canvas)` check? No, the check is before the function definition. So it's fine.
+
+I suspect the error is actually from a different version of the code where the null checks were missing or placed differently. The user says "Automated testing found these problems:" and lists the errors. So the code they provided is the one that produced those errors. So we need to fix it. The fix is to ensure that TypeScript knows `canvas` and `scoreElement` are non-null inside the functions. The simplest way: after the null checks, assign to new constants with non-null types, or use non-null assertions, or restructure. Since we need to output the complete fixed files, we can just add non-null assertions (`!`) where they are used, or better, after the checks, we can declare new variables that are definitely non-null. For example:
+
+```
+const canvasElement = canvas!; // but canvas is already narrowed? Actually, after the throw, canvas is narrowed, but TypeScript might not propagate that into closures if the variable is used in a function that is defined before the check? No, it's defined after. I'm going to test mentally: TypeScript's control flow analysis for closures: if a variable is `const` and its type is narrowed in the outer scope, the narrowed type is captured in the closure. This is true. So why the error? Maybe because the `canvas` variable is used inside `draw` and `update` but the `canvas` variable is not `const`? It is `const`. So it should work. I'll check TypeScript playground: 
+
+```
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+if (!canvas) throw new Error('Canvas element not found');
+function draw() {
+    canvas.width; // error?
+}
+```
+
+In TypeScript 5.x, this compiles without error. So the error might be from an older version? The user says "Automated testing found these problems:" so maybe the testing environment uses a specific TypeScript version that doesn't narrow across function boundaries? But the instruction says "snake.ts must compile cleanly with tsc --target ES2022 --module ES2022 --strict". So we need to ensure it compiles under strict. The safest fix is to use non-null assertions or assign to new constants after the checks. For example:
+
+```
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+if (!canvas) throw new Error('Canvas element not found');
+const ctx = canvas.getContext('2d')!; // we know canvas is not null, but ctx could be null, we'll check later
+```
+
+But we need to ensure `ctx` is not null. We can do:
+
+```
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+if (!canvas) throw new Error('Canvas element not found');
+const ctx = canvas.getContext('2d');
+if (!ctx) throw new Error('2D context not available');
+```
+
+Then inside functions, use `canvas!` or `ctx!`? That would be ugly. Better: after the checks, we can assign to new constants that are definitely non-null:
+
+```
+const canvasElement = canvas; // TypeScript now knows canvas is HTMLCanvasElement, so canvasElement is HTMLCanvasElement
+const context = ctx; // CanvasRenderingContext2D
+```
+
+Then use `canvasElement` and `context` everywhere. That would avoid any null issues. Similarly for `scoreElement`. So we'll refactor: after the null checks, create new constants with the narrowed types, and use those in the functions. That's clean and ensures no null errors.
+
+Alternatively, we can just add `!` at the usage points: `canvas!.width`, but that's less elegant. I'll go with the new constants approach.
+
+So the fixed code:
+
+```
+const canvasElement = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+if (!canvasElement) throw new Error('Canvas element not found');
+const canvas = canvasElement; // now canvas is HTMLCanvasElement
+const ctx = canvas.getContext('2d');
+if (!ctx) throw new Error('2D context not available');
+const context = ctx; // CanvasRenderingContext2D
+
+const scoreElement = document.getElementById('score');
+if (!scoreElement) throw new Error('Score element not found');
+const scoreDisplay = scoreElement; // HTMLElement
+```
+
+Then use `canvas`, `context`, `scoreDisplay` in the rest of the code. But we need to update all references. The original code uses `canvas` and `ctx` and `scoreElement`. So we can just rename the variables after the checks. For example:
+
+```
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+if (!canvas) throw new Error('Canvas element not found');
+const ctx = canvas.getContext('2d');
+if (!ctx) throw new Error('2D context not available');
+const scoreElement = document.getElementById('score');
+if (!scoreElement) throw new Error('Score element not found');
+```
+
+But then inside functions, `canvas` is still possibly null? No, after the `if (!canvas) throw`, `canvas` is narrowed to `HTMLCanvasElement`. However, the error suggests that TypeScript doesn't narrow it for closures. To be safe, we can reassign to new constants:
+
+```
+const canvasEl = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+if (!canvasEl) throw new Error('Canvas element not found');
+const canvas = canvasEl; // HTMLCanvasElement
+const ctx = canvas.getContext('2d');
+if (!ctx) throw new Error('2D context not available');
+const context = ctx; // CanvasRenderingContext2D
+const scoreEl = document.getElementById('score');
+if (!scoreEl) throw new Error('Score element not found');
+const scoreElement = scoreEl; // HTMLElement
+```
+
+Then use `canvas`, `context`, `scoreElement` throughout. That will definitely satisfy strict null checks.
+
+Now, we also need to ensure no other strict errors. The code uses `let gameInterval: number | undefined;` and later `clearInterval(gameInterval)` which is fine because `clearInterval` accepts `number | undefined`. `window.setInterval` returns `number`. That's fine. The `draw` function uses `ctx` which is now `context`. We'll update.
+
+Also, the `update` function uses `scoreElement.textContent = ...` which is fine with `scoreElement` being `HTMLElement` (has `textContent`). So all good.
+
+We'll output the two files: index.html (unchanged) and snake.ts (fixed). The index.html is exactly as provided, no changes needed. The snake.ts will be the fixed version.
+
+Let's rewrite snake.ts with the fixes. We'll keep the same logic, just ensure null safety.
+
+One more thing: The original code uses `canvas.width` and `canvas.height` in `draw` and `update`. With our new `canvas` constant (HTMLCanvasElement), that's fine. `context` is used for drawing. So we'll replace `ctx` with `context` everywhere.
+
+Also, the `draw` function has `if (!ctx) return;` which is unnecessary now because `context` is non-null. We can remove that guard.
+
+Similarly, `update` uses `scoreElement.textContent`; we'll use `scoreElement`.
+
+We'll also ensure that the `randomFoodPosition` function uses `snake` which is fine.
+
+Now, output exactly two fenced code blocks.

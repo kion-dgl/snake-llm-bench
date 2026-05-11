@@ -1,0 +1,10 @@
+{
+  "model": "qwen3-coder:30b",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 17033,
+  "promptEvalCount": 184,
+  "evalCount": 238,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:13:19.543Z"
+}

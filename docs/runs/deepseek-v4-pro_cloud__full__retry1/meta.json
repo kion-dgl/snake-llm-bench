@@ -1,0 +1,11 @@
+{
+  "model": "deepseek-v4-pro:cloud",
+  "role": "fixup",
+  "baseRun": "runs/deepseek-v4-pro_cloud__full",
+  "attempt": 1,
+  "durationMs": 150389,
+  "promptEvalCount": 1674,
+  "evalCount": 4765,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:04:58.212Z"
+}

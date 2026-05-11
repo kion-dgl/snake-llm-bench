@@ -1,0 +1,966 @@
+The user wants me to fix TypeScript compilation errors in a Snake game. The errors are all about `ctx` possibly being `null`. Looking at the code:
+
+```typescript
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+```
+
+The issue is that TypeScript with `--strict` doesn't narrow `ctx` to non-null after the `if (!ctx)` check when used in other functions like `draw()`. Wait, actually it should narrow within the same scope... Let me look more carefully.
+
+Actually, the error messages show lines 79, 80, 82, 83, 90, 92, 101. Let me count lines in the provided TypeScript code to see what's on those lines.
+
+Line 1: const TILE_SIZE = 20;
+Line 2: const GRID_WIDTH = 20;
+Line 3: const GRID_HEIGHT = 20;
+Line 4: const MOVE_INTERVAL = 100;
+Line 5:
+Line 6: const canvas = document.getElementById("game") as HTMLCanvasElement;
+Line 7: const ctx = canvas.getContext("2d");
+Line 8: if (!ctx) {
+Line 9:   throw new Error("Unable to get 2D context");
+Line 10: }
+Line 11: const scoreEl = document.getElementById("score") as HTMLSpanElement;
+...
+
+Wait, the line numbers in the error message might not match exactly because of how the file was processed, but the issue is clear: `canvas.getContext("2d")` returns `CanvasRenderingContext2D | null`, and even though there's a null check right after, TypeScript should narrow it. But wait - in strict mode, is there an issue with the null check?
+
+Actually, looking at the error: `TS18047: 'ctx' is possibly 'null'`. This happens when strictNullChecks is on. But if we do:
+
+```typescript
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+```
+
+After this, `ctx` should be narrowed to `CanvasRenderingContext2D`. However, maybe the issue is that `ctx` is declared as `const ctx = ...` and then checked, which should work. But wait - maybe the error messages correspond to a different version of the file or the line numbers are off?
+
+Let me recount carefully. The provided TS code:
+
+1 const TILE_SIZE = 20;
+2 const GRID_WIDTH = 20;
+3 const GRID_HEIGHT = 20;
+4 const MOVE_INTERVAL = 100;
+5 
+6 const canvas = document.getElementById("game") as HTMLCanvasElement;
+7 const ctx = canvas.getContext("2d");
+8 if (!ctx) {
+9   throw new Error("Unable to get 2D context");
+10 }
+11 const scoreEl = document.getElementById("score") as HTMLSpanElement;
+12 
+13 type Point = { x: number; y: number };
+14 
+15 let snake: Point[] = [];
+16 let food: Point = { x: 0, y: 0 };
+17 let dx = 1;
+18 let dy = 0;
+19 let nextDx = 1;
+20 let nextDy = 0;
+21 let score = 0;
+22 let gameOver = false;
+23 let lastMoveTime = 0;
+24 
+25 function placeFood(): void {
+26   let x: number;
+27   let y: number;
+28   do {
+29     x = Math.floor(Math.random() * GRID_WIDTH);
+30     y = Math.floor(Math.random() * GRID_HEIGHT);
+31   } while (snake.some((seg) => seg.x === x && seg.y === y));
+32   food = { x, y };
+33 }
+34 
+35 function reset(): void {
+36   snake = [{ x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) }];
+37   dx = 1;
+38   dy = 0;
+39   nextDx = 1;
+40   nextDy = 0;
+41   score = 0;
+42   gameOver = false;
+43   lastMoveTime = 0;
+44   placeFood();
+45 }
+46 
+47 function move(): void {
+48   dx = nextDx;
+49   dy = nextDy;
+50   const head = snake[0];
+51   const newHead: Point = { x: head.x + dx, y: head.y + dy };
+52 
+53   if (
+54     newHead.x < 0 ||
+55     newHead.x >= GRID_WIDTH ||
+56     newHead.y < 0 ||
+57     newHead.y >= GRID_HEIGHT
+58   ) {
+59     gameOver = true;
+60     return;
+61   }
+62 
+63   if (snake.some((seg) => seg.x === newHead.x && seg.y === newHead.y)) {
+64     gameOver = true;
+65     return;
+66   }
+67 
+68   snake.unshift(newHead);
+69 
+70   if (newHead.x === food.x && newHead.y === food.y) {
+71     score += 1;
+72     placeFood();
+73   } else {
+74     snake.pop();
+75   }
+76 }
+77 
+78 function draw(): void {
+79   ctx.fillStyle = "#000";
+80   ctx.fillRect(0, 0, canvas.width, canvas.height);
+81 
+82   ctx.fillStyle = "#e74c3c";
+83   ctx.fillRect(
+84     food.x * TILE_SIZE,
+85     food.y * TILE_SIZE,
+86     TILE_SIZE - 2,
+87     TILE_SIZE - 2
+88   );
+89 
+90   ctx.fillStyle = "#2ecc71";
+91   for (const seg of snake) {
+92     ctx.fillRect(
+93       seg.x * TILE_SIZE,
+94       seg.y * TILE_SIZE,
+95       TILE_SIZE - 2,
+96       TILE_SIZE - 2
+97     );
+98   }
+99 
+100   if (gameOver) {
+101     ctx.fillStyle = "#fff";
+102     ctx.font = "30px monospace";
+103     ctx.textAlign = "center";
+104     ctx.textBaseline = "middle";
+105     ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2);
+106   }
+107 
+108   scoreEl.textContent = String(score);
+109 }
+110 
+111 function gameLoop(timestamp: number): void {
+112   if (!lastMoveTime) {
+113     lastMoveTime = timestamp;
+114   }
+115   if (timestamp - lastMoveTime >= MOVE_INTERVAL) {
+116     if (!gameOver) {
+117       move();
+118     }
+119     lastMoveTime = timestamp;
+120   }
+121   draw();
+122   requestAnimationFrame(gameLoop);
+123 }
+124 
+125 window.addEventListener("keydown", (e: KeyboardEvent) => {
+126   if (gameOver) {
+127     if (e.key === " ") {
+128       reset();
+129     }
+130     return;
+131   }
+132 
+133   switch (e.key) {
+134     case "ArrowUp":
+135       if (dy === 0) {
+136         nextDx = 0;
+137         nextDy = -1;
+138       }
+139       break;
+140     case "ArrowDown":
+141       if (dy === 0) {
+142         nextDx = 0;
+143         nextDy = 1;
+144       }
+145       break;
+146     case "ArrowLeft":
+147       if (dx === 0) {
+148         nextDx = -1;
+149         nextDy = 0;
+150       }
+151       break;
+152     case "ArrowRight":
+153       if (dx === 0) {
+154         nextDx = 1;
+155         nextDy = 0;
+156       }
+157       break;
+158   }
+159 });
+160 
+161 reset();
+162 requestAnimationFrame(gameLoop);
+
+So line 79 is `ctx.fillStyle = "#000";`. The issue is that TypeScript is complaining that `ctx` is possibly null. But we have a null check on line 8-10. Wait, why would it complain?
+
+Actually, I think I see the issue. The variable `ctx` is declared with `const ctx = canvas.getContext("2d");` which gives it type `CanvasRenderingContext2D | null`. Then we check `if (!ctx) { throw ... }`. After that block, TypeScript *should* narrow it to non-null. But maybe in some TypeScript versions or configurations, this doesn't work as expected? Or perhaps the issue is that the error messages are from a run where the code was slightly different?
+
+Wait, looking at the error message again:
+```
+runs/kimi-k2.6_cloud__full/snake.ts(79,3): error TS18047: 'ctx' is possibly 'null'.
+```
+
+If line 79 is indeed `ctx.fillStyle = "#000";`, then TypeScript should have narrowed it. Unless... the null check doesn't actually narrow because of some control flow issue? No, `throw new Error(...)` should definitely narrow it.
+
+Wait! I think I understand now. The error might be because `ctx` is used inside functions that are defined later, and TypeScript might not propagate the narrowing across function boundaries? No, that's not right either - `ctx` is a const at module scope, so it should be narrowed for the entire module.
+
+Let me think... Actually, maybe the issue is that in the original code that was tested, the null check wasn't there or was different? But the user provided the code and said "Automated testing found these problems". So the code I see is exactly what was tested.
+
+Hmm, let me look at the error message more carefully. It says `TS18047`. In TypeScript, this error occurs with strictNullChecks when a variable that can be null/undefined is used without checking.
+
+Wait! I think I know what might be happening. If the file is treated as a module (which it would be with `--module ES2022`), top-level variables are scoped to the module, but that shouldn't affect narrowing. However, if `tsc` is run with `--strict`, and the code uses `const ctx = canvas.getContext("2d");`, the type is `CanvasRenderingContext2D | null`. The `if (!ctx)` check with a throw should narrow it. This is standard and should work.
+
+But maybe the automated testing environment has a quirk, or maybe I should just make it extra explicit to be safe. The safest way to fix this is to use a non-null assertion or assign to a non-null typed variable.
+
+For example:
+```typescript
+const ctx = canvas.getContext("2d")!;
+```
+Or:
+```typescript
+const ctx: CanvasRenderingContext2D = canvas.getContext("2d")!;
+```
+Or:
+```typescript
+const ctx = canvas.getContext("2d");
+if (!ctx) throw new Error("Unable to get 2D context");
+// Then use ctx! or reassign
+```
+
+Actually, using the non-null assertion `!` is the most straightforward way to satisfy the compiler. But wait, if the null check with throw doesn't narrow it, that would be very surprising. Let me verify...
+
+Actually, I just realized - maybe the issue is that `document.getElementById("game")` returns `HTMLElement | null`, and even though it's cast to `HTMLCanvasElement`, `canvas.getContext` might still be seen as potentially returning null, and the compiler is being extra strict? No, the null check should handle that.
+
+Wait, looking at the error output again, there are many errors all about `ctx`. If the narrowing worked, there would be zero errors. So perhaps in the actual code that was compiled, the null check was missing? But the user shows it in the code snippet.
+
+Let me re-read the user's code snippet carefully:
+
+```typescript
+const canvas = document.getElementById("game") as HTMLCanvasElement;
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+const scoreEl = document.getElementById("score") as HTMLSpanElement;
+```
+
+This looks correct. But maybe the issue is that `scoreEl` could also be null and needs checking? The error message only mentions `ctx` though.
+
+Actually, I think the safest approach is to just use the non-null assertion operator `!` on the `getContext` call, or to declare `ctx` with an explicit type and use `!`. But I also need to check `scoreEl` - `document.getElementById("score")` returns `HTMLElement | null`, and casting it with `as HTMLSpanElement` doesn't remove the possibility of it being null from TypeScript's perspective if strictNullChecks is on? Wait, `as` is a type assertion, so it does tell the compiler "trust me, this is HTMLSpanElement". So `scoreEl` should be fine.
+
+But to be extra safe and correct, I should probably check `scoreEl` too, or use `!` there as well. However, the errors only mention `ctx`.
+
+Let me think about why `ctx` might still be null after the check. One possibility: the code was in a global script file (not a module), and `const` declarations in global scope might behave differently? No, that shouldn't matter.
+
+Another possibility: the TypeScript version used for testing has a bug? Unlikely.
+
+Actually, I think I should just fix it by using `!` or by making the null check more explicit. Since the user says "Fix every problem", and the only problems mentioned are the `ctx` possibly null errors, I should ensure `ctx` is typed as non-null.
+
+The cleanest fix that satisfies strict mode:
+```typescript
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+```
+
+Wait, if this doesn't work, maybe I need to do:
+```typescript
+const maybeCtx = canvas.getContext("2d");
+if (!maybeCtx) {
+  throw new Error("Unable to get 2D context");
+}
+const ctx = maybeCtx;
+```
+
+This would definitely narrow it. But why would the original not work? Let me think... Actually, in TypeScript, the narrowing should work. But to be absolutely safe and ensure no TS18047 errors, I'll use the non-null assertion:
+
+```typescript
+const ctx = canvas.getContext("2d")!;
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+```
+
+Wait, if I use `!`, then `ctx` is `CanvasRenderingContext2D`, and the `if (!ctx)` check becomes unreachable or at least doesn't change the type. But that's fine.
+
+Actually, a better pattern that satisfies strict null checks without non-null assertions is:
+```typescript
+const ctx = canvas.getContext("2d");
+if (ctx === null) {
+  throw new Error("Unable to get 2D context");
+}
+```
+
+Using `=== null` might narrow better than `!ctx`? No, both should work identically.
+
+Hmm, but the user says the automated testing found these errors. Maybe the testing used a different line-numbered version? Or maybe there's something else.
+
+You know what, I'll just make sure to use a non-null assertion or explicit null check that definitely satisfies the compiler. I'll also check `scoreEl` similarly to be safe, even though it wasn't in the error log.
+
+Wait, looking at the error log again, it cuts off at `runs/kimi` at the end, suggesting there might be more errors, possibly for `scoreEl` too. Let me check if `scoreEl` is used in a way that could error. It's used in `draw()` on line 108: `scoreEl.textContent = String(score);`. If `scoreEl` is typed as `HTMLSpanElement` via `as`, it should be fine. But if the test environment reported only `ctx` errors, maybe that's all there is.
+
+Actually, I realize now - could the issue be that `canvas` might be null? No, it's cast with `as HTMLCanvasElement`.
+
+Let me just provide the fixed code. I'll use:
+```typescript
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+```
+
+But since the user says this failed, I'll add explicit type annotation or non-null assertion. Actually, I'll use the non-null assertion because it's the most reliable way to tell TypeScript "this is not null":
+
+```typescript
+const ctx = canvas.getContext("2d")!;
+```
+
+But then the `if (!ctx)` check is redundant. However, keeping it as a runtime check is good practice. So:
+
+```typescript
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+```
+
+If TypeScript still complains about this (which would be bizarre), I can do:
+
+```typescript
+const maybeCtx = canvas.getContext("2d");
+if (!maybeCtx) {
+  throw new Error("Unable to get 2D context");
+}
+const ctx: CanvasRenderingContext2D = maybeCtx;
+```
+
+This absolutely definitely works and satisfies strict null checks without using `!`.
+
+Actually, I just realized something. In TypeScript, if you have:
+```typescript
+const ctx = canvas.getContext("2d");
+if (!ctx) throw new Error("...");
+```
+Then `ctx` is narrowed. But maybe the issue is that in the original file, there was no blank line or something? No, the user provided the exact code.
+
+Wait! I count the lines again. The error says line 79. In my count, line 79 is `ctx.fillStyle = "#000";`. But what if the original file had a different number of blank lines? The user provided the code in a markdown block. When extracted to a file, the line numbers should match what I counted.
+
+Actually, let me look at the first line of the TS code block. It starts immediately with `const TILE_SIZE = 20;`. So my line count should be correct.
+
+You know what, I'll just rewrite it with the pattern that is 100% guaranteed to pass strict null checks:
+
+```typescript
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+```
+
+Wait, this is exactly what's in the code. If this is failing, then I need to use a different approach. Let me search my mental database... Ah! Could it be that `canvas` is typed as `HTMLElement` despite the cast, and `getContext` is not a standard method on `HTMLElement`, so TypeScript infers `any` or something? No, `as HTMLCanvasElement` should make it `HTMLCanvasElement`.
+
+Actually, I think the issue might be simpler than I thought. Maybe the automated test extracts the code from markdown and the line numbers shift, but the actual error is that `ctx` is used before its declaration? No, it's declared at the top.
+
+Let me just use the non-null assertion approach. It's the standard fix for this when you know better than the compiler:
+
+```typescript
+const ctx = canvas.getContext("2d")!;
+```
+
+And remove the `if (!ctx)` check, or keep it for runtime safety but the type is already non-null. Actually, keeping the check with `!` is fine:
+
+```typescript
+const ctx = canvas.getContext("2d")!;
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+```
+
+This is redundant but safe. The type of `ctx` is `CanvasRenderingContext2D`, so no more `possibly null` errors.
+
+But wait, I should also check `scoreEl`. The code has:
+```typescript
+const scoreEl = document.getElementById("score") as HTMLSpanElement;
+```
+
+With strict mode, `as` suppresses the error, so it should be fine. But to be thorough, I should probably handle it similarly or ensure it's not null. The prompt says "Fix every problem", and the error log only shows `ctx` errors, but it cuts off. Let me see if there could be other issues.
+
+Actually, looking at the error log:
+```
+runs/kimi-k2.6_cloud__full/snake.ts(79,3): error TS18047: 'ctx' is possibly 'null'.
+runs/kimi-k2.6_cloud__full/snake.ts(80,3): error TS18047: 'ctx' is possibly 'null'.
+runs/kimi-k2.6_cloud__full/snake.ts(82,3): error TS18047: 'ctx' is possibly 'null'.
+runs/kimi-k2.6_cloud__full/snake.ts(83,3): error TS18047: 'ctx' is possibly 'null'.
+runs/kimi-k2.6_cloud__full/snake.ts(90,3): error TS18047: 'ctx' is possibly 'null'.
+runs/kimi-k2.6_cloud__full/snake.ts(92,5): error TS18047: 'ctx' is possibly 'null'.
+runs/kimi-k2.6_cloud__full/snake.ts(101,5): error TS18047: 'ctx' is possibly 'null'.
+runs/kimi
+```
+
+It cuts off after line 101. In my count, line 101 is `ctx.fillStyle = "#fff";` inside the `if (gameOver)` block. So all errors are indeed `ctx` related. The fix is definitely to make `ctx` non-null.
+
+I'll use:
+```typescript
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+```
+
+Wait, but the user says this exact code failed. So maybe TypeScript really doesn't narrow it? Let me reconsider...
+
+Actually, I think I know why. If the file is a script (not a module), and there are other declarations, maybe TypeScript treats it differently? But `--module ES2022` makes it a module. In a module, top-level `const` should narrow fine.
+
+You know what, I'll just use the `!` non-null assertion. That absolutely fixes TS18047.
+
+```typescript
+const ctx = canvas.getContext("2d")!;
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+```
+
+Or even simpler, just:
+```typescript
+const ctx = canvas.getContext("2d")!;
+```
+
+But I like keeping the runtime check. With `!`, the type is non-null, and the runtime check still works.
+
+Actually, another approach that avoids `!` and is more "proper":
+```typescript
+const ctx = canvas.getContext("2d");
+if (ctx === null) {
+  throw new Error("Unable to get 2D context");
+}
+// use ctx
+```
+
+If this doesn't work, then TypeScript is broken. But since the user says it failed, maybe I should just use `!` to be safe.
+
+Wait, I want to double-check something. Is it possible that the `canvas` variable itself is the issue? `document.getElementById("game") as HTMLCanvasElement` - if the element doesn't exist, this cast is a lie, but TypeScript trusts it. So `canvas` is `HTMLCanvasElement`. Then `canvas.getContext("2d")` returns `CanvasRenderingContext2D | null`. The `if (!ctx)` should narrow.
+
+Let me think about this differently. Maybe the error is not from the code shown but from a slightly different version where the null check was missing? The user says "You wrote this Snake game" and "Automated testing found these problems". So this is indeed the code.
+
+I'll provide the fix using non-null assertion for `ctx`, and I'll also make sure `scoreEl` is handled properly just in case. Actually, looking at the requirements, I should make the minimal necessary changes.
+
+One more thing: the user says `snake.ts` must compile cleanly with `tsc --target ES2022 --module ES2022 --strict`. With `--module ES2022`, the file is treated as a module. In a module, `const ctx` at top level should definitely be narrowed by the `if (!ctx) throw ...` pattern. 
+
+But to be absolutely, 100% sure, I'll write:
+
+```typescript
+const maybeCtx = canvas.getContext("2d");
+if (!maybeCtx) {
+  throw new Error("Unable to get 2D context");
+}
+const ctx = maybeCtx;
+```
+
+This creates a new const that is definitely narrowed. This is bulletproof and doesn't use `!`.
+
+Actually, you know what, I'll do this. It's clean and guaranteed to work.
+
+Similarly for scoreEl:
+```typescript
+const scoreEl = document.getElementById("score");
+if (!scoreEl) {
+  throw new Error("Score element not found");
+}
+```
+
+But the original used `as HTMLSpanElement`. If I remove the `as`, `scoreEl` is `HTMLElement`, and `textContent` exists on `HTMLElement`, so that's fine. But the original code didn't error on `scoreEl`, so maybe I don't need to change it. However, to be consistent and safe, I should probably check it too. But the prompt says "Fix every problem" - the problems listed are all `ctx` errors. I should minimize changes.
+
+Actually, looking at the error log, it cuts off at `runs/kimi` which might indicate more errors below. But since I can't see them, I'll fix the obvious ones and ensure strict compliance.
+
+Let me also check for any other potential strict mode issues:
+- `lastMoveTime` is initialized to 0, and in `gameLoop`: `if (!lastMoveTime)` - this is fine, it's a number.
+- `snake[0]` in `move()` - `snake` is initialized in `reset()` before the game loop starts, and `reset()` is called before `requestAnimationFrame`. But TypeScript doesn't know that `snake` will have elements when `move()` is called. However, `snake` is typed as `Point[]`, and accessing `[0]` gives `Point | undefined`. In strict mode, this could potentially error if `noUncheckedIndexedAccess` is enabled, but `--strict` doesn't enable that by default (it's a separate flag). So `snake[0]` should be fine.
+
+Wait, actually `--strict` in TypeScript enables: `--noImplicitAny`, `--noImplicitThis`, `--alwaysStrict`, `--strictBindCallApply`, `--strictNullChecks`, `--strictFunctionTypes`, `--strictPropertyInitialization`. It does NOT enable `--noUncheckedIndexedAccess`. So `snake[0]` is fine.
+
+Another potential issue: `scoreEl.textContent = String(score);` - if `scoreEl` is `HTMLSpanElement`, this is fine.
+
+So the only fix needed is the `ctx` nullability. I'll use the `maybeCtx` pattern to be safe and avoid `!`.
+
+Wait, I just realized - the user might have copy-pasted the code and the line numbers in the error might correspond exactly to the file. If the null check with throw doesn't narrow the variable in their TypeScript version, then using a separate variable is the right fix.
+
+Let me write the complete `snake.ts`:
+
+```typescript
+const TILE_SIZE = 20;
+const GRID_WIDTH = 20;
+const GRID_HEIGHT = 20;
+const MOVE_INTERVAL = 100;
+
+const canvas = document.getElementById("game") as HTMLCanvasElement;
+const ctxOrNull = canvas.getContext("2d");
+if (!ctxOrNull) {
+  throw new Error("Unable to get 2D context");
+}
+const ctx = ctxOrNull;
+const scoreEl = document.getElementById("score") as HTMLSpanElement;
+
+type Point = { x: number; y: number };
+
+let snake: Point[] = [];
+let food: Point = { x: 0, y: 0 };
+let dx = 1;
+let dy = 0;
+let nextDx = 1;
+let nextDy = 0;
+let score = 0;
+let gameOver = false;
+let lastMoveTime = 0;
+
+function placeFood(): void {
+  let x: number;
+  let y: number;
+  do {
+    x = Math.floor(Math.random() * GRID_WIDTH);
+    y = Math.floor(Math.random() * GRID_HEIGHT);
+  } while (snake.some((seg) => seg.x === x && seg.y === y));
+  food = { x, y };
+}
+
+function reset(): void {
+  snake = [{ x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) }];
+  dx = 1;
+  dy = 0;
+  nextDx = 1;
+  nextDy = 0;
+  score = 0;
+  gameOver = false;
+  lastMoveTime = 0;
+  placeFood();
+}
+
+function move(): void {
+  dx = nextDx;
+  dy = nextDy;
+  const head = snake[0];
+  const newHead: Point = { x: head.x + dx, y: head.y + dy };
+
+  if (
+    newHead.x < 0 ||
+    newHead.x >= GRID_WIDTH ||
+    newHead.y < 0 ||
+    newHead.y >= GRID_HEIGHT
+  ) {
+    gameOver = true;
+    return;
+  }
+
+  if (snake.some((seg) => seg.x === newHead.x && seg.y === newHead.y)) {
+    gameOver = true;
+    return;
+  }
+
+  snake.unshift(newHead);
+
+  if (newHead.x === food.x && newHead.y === food.y) {
+    score += 1;
+    placeFood();
+  } else {
+    snake.pop();
+  }
+}
+
+function draw(): void {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#e74c3c";
+  ctx.fillRect(
+    food.x * TILE_SIZE,
+    food.y * TILE_SIZE,
+    TILE_SIZE - 2,
+    TILE_SIZE - 2
+  );
+
+  ctx.fillStyle = "#2ecc71";
+  for (const seg of snake) {
+    ctx.fillRect(
+      seg.x * TILE_SIZE,
+      seg.y * TILE_SIZE,
+      TILE_SIZE - 2,
+      TILE_SIZE - 2
+    );
+  }
+
+  if (gameOver) {
+    ctx.fillStyle = "#fff";
+    ctx.font = "30px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2);
+  }
+
+  scoreEl.textContent = String(score);
+}
+
+function gameLoop(timestamp: number): void {
+  if (!lastMoveTime) {
+    lastMoveTime = timestamp;
+  }
+  if (timestamp - lastMoveTime >= MOVE_INTERVAL) {
+    if (!gameOver) {
+      move();
+    }
+    lastMoveTime = timestamp;
+  }
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+window.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (gameOver) {
+    if (e.key === " ") {
+      reset();
+    }
+    return;
+  }
+
+  switch (e.key) {
+    case "ArrowUp":
+      if (dy === 0) {
+        nextDx = 0;
+        nextDy = -1;
+      }
+      break;
+    case "ArrowDown":
+      if (dy === 0) {
+        nextDx = 0;
+        nextDy = 1;
+      }
+      break;
+    case "ArrowLeft":
+      if (dx === 0) {
+        nextDx = -1;
+        nextDy = 0;
+      }
+      break;
+    case "ArrowRight":
+      if (dx === 0) {
+        nextDx = 1;
+        nextDy = 0;
+      }
+      break;
+  }
+});
+
+reset();
+requestAnimationFrame(gameLoop);
+```
+
+This should compile cleanly. The `ctxOrNull` pattern ensures strict null checks are satisfied.
+
+Actually, I want to make sure about one thing. Is there any issue with `canvas.width` and `canvas.height`? `canvas` is `HTMLCanvasElement`, so those are numbers. Fine.
+
+Is there any issue with `String(score)`? No.
+
+Is there any issue with `requestAnimationFrame(gameLoop)`? `gameLoop` takes a `timestamp: number`, but `requestAnimationFrame` passes a `DOMHighResTimeStamp` which is a number, so it's compatible. Fine.
+
+One more check: `lastMoveTime` is initialized to `0`. In `gameLoop`, `if (!lastMoveTime)` will be true on the first call (since 0 is falsy), so it sets `lastMoveTime = timestamp`. This is correct.
+
+I think the code is good. The HTML file doesn't need any changes since the errors were all in the TypeScript file. But I need to output both files exactly as requested.
+
+Wait, the user said "re-emit the complete files". So I should output the HTML exactly as before (or with any necessary fixes). The HTML looks fine and doesn't need changes. But I'll include it exactly as provided.
+
+Actually, looking at the HTML, there's nothing wrong with it. It references `snake.js` which is the compiled output of `snake.ts`. That's correct.
+
+So final output:
+1. HTML block
+2. TS block
+
+Let me double check the TS code for any other strict mode issues.
+- `const head = snake[0];` - as discussed, this is `Point` because `noUncheckedIndexedAccess` is not part of `--strict`.
+- All variables are properly typed or inferred.
+- No implicit any.
+- `window.addEventListener` is fine.
+- `e: KeyboardEvent` is explicit.
+
+Looks good. I'll use the `ctxOrNull` intermediate variable approach. It's clean and doesn't rely on non-null assertions.
+
+Actually, one more thought: could `document.getElementById("score") as HTMLSpanElement` be an issue? The `as` assertion bypasses null checks, so TypeScript sees it as `HTMLSpanElement` (non-null). That's fine, though at runtime it could be null. But since the errors didn't mention it, and the prompt asks to fix the problems found, I'll leave it. If I want to be extra careful, I could do:
+
+```typescript
+const scoreEl = document.getElementById("score");
+if (!scoreEl) {
+  throw new Error("Score element not found");
+}
+```
+
+But `scoreEl` would then be `HTMLElement`, and `textContent` is available. However, the original explicitly typed it as `HTMLSpanElement`. I'll keep it as is to minimize changes, since it wasn't in the error report.
+
+Actually, looking at the error log one more time: it ends with `runs/kimi` which is cut off. There might have been more errors. But `scoreEl` is only used once. If there were an error for it, it would likely be on the line where it's used. Since the log shows many `ctx` errors and then cuts off, maybe there are more. But I can't know for sure. The safe thing is to also guard `scoreEl`:
+
+```typescript
+const scoreEl = document.getElementById("score");
+if (!scoreEl) {
+  throw new Error("Score element not found");
+}
+```
+
+This is safer and satisfies strict mode better. But the cast `as HTMLSpanElement` also satisfies it. I'll add the guard just to be thorough and robust.
+
+Wait, but if I change `scoreEl` to not have the `as HTMLSpanElement`, its type becomes `HTMLElement | null`, and after the check, `HTMLElement`. That's fine. But the original had it. I'll keep the original with the cast and add a null check, or just keep the cast. Since the errors shown are only for `ctx`, and the cast handles `scoreEl`'s nullability from TS's perspective, I'll keep it simple and only fix `ctx`.
+
+Actually, I'll add a null check for scoreEl too, because it's good practice and ensures runtime safety:
+
+```typescript
+const scoreEl = document.getElementById("score");
+if (!scoreEl) {
+  throw new Error("Score element not found");
+}
+```
+
+But then `scoreEl` is `HTMLElement`, and the code `scoreEl.textContent = ...` works. However, the original explicitly said `as HTMLSpanElement`. I'll just keep the cast and not add a check, since it wasn't in the error log. The user asked to fix the problems found, not to refactor everything.
+
+So my final decision: only change `ctx` to use an intermediate variable with null check. Everything else stays the same.
+
+Wait, I want to verify: does the intermediate variable `ctxOrNull` definitely solve the issue? Yes, because after `if (!ctxOrNull) throw ...`, `ctxOrNull` is narrowed to `CanvasRenderingContext2D` inside the block after the if, but wait - no. If we do:
+
+```typescript
+const ctxOrNull = canvas.getContext("2d");
+if (!ctxOrNull) {
+  throw new Error("...");
+}
+const ctx = ctxOrNull;
+```
+
+After the `if` block (which throws), control continues only if `ctxOrNull` is truthy, so it's narrowed to `CanvasRenderingContext2D`. Then `const ctx = ctxOrNull;` creates a new const with type `CanvasRenderingContext2D`. This is 100% correct and bulletproof.
+
+Actually, we don't even need a new variable. After the if block, `ctxOrNull` itself is narrowed. But creating `const ctx = ctxOrNull;` is cleaner so the rest of the code doesn't change.
+
+Let me write it out:
+
+```typescript
+const canvas = document.getElementById("game") as HTMLCanvasElement;
+const ctxMaybe = canvas.getContext("2d");
+if (!ctxMaybe) {
+  throw new Error("Unable to get 2D context");
+}
+const ctx = ctxMaybe;
+```
+
+Yes, this is perfect.
+
+One final check: the user said "Output exactly two fenced code blocks, in this order, nothing else". So I must not include any explanatory text outside the code blocks. Just the two blocks.
+
+The HTML:
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #111;
+      color: #fff;
+      font-family: monospace;
+    }
+    canvas {
+      border: 2px solid #fff;
+      background: #000;
+    }
+    #score-board {
+      margin-bottom: 12px;
+      font-size: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="score-board">Score: <span id="score">0</span></div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+The TS:
+```typescript
+const TILE_SIZE = 20;
+const GRID_WIDTH = 20;
+const GRID_HEIGHT = 20;
+const MOVE_INTERVAL = 100;
+
+const canvas = document.getElementById("game") as HTMLCanvasElement;
+const ctxMaybe = canvas.getContext("2d");
+if (!ctxMaybe) {
+  throw new Error("Unable to get 2D context");
+}
+const ctx = ctxMaybe;
+const scoreEl = document.getElementById("score") as HTMLSpanElement;
+
+type Point = { x: number; y: number };
+
+let snake: Point[] = [];
+let food: Point = { x: 0, y: 0 };
+let dx = 1;
+let dy = 0;
+let nextDx = 1;
+let nextDy = 0;
+let score = 0;
+let gameOver = false;
+let lastMoveTime = 0;
+
+function placeFood(): void {
+  let x: number;
+  let y: number;
+  do {
+    x = Math.floor(Math.random() * GRID_WIDTH);
+    y = Math.floor(Math.random() * GRID_HEIGHT);
+  } while (snake.some((seg) => seg.x === x && seg.y === y));
+  food = { x, y };
+}
+
+function reset(): void {
+  snake = [{ x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) }];
+  dx = 1;
+  dy = 0;
+  nextDx = 1;
+  nextDy = 0;
+  score = 0;
+  gameOver = false;
+  lastMoveTime = 0;
+  placeFood();
+}
+
+function move(): void {
+  dx = nextDx;
+  dy = nextDy;
+  const head = snake[0];
+  const newHead: Point = { x: head.x + dx, y: head.y + dy };
+
+  if (
+    newHead.x < 0 ||
+    newHead.x >= GRID_WIDTH ||
+    newHead.y < 0 ||
+    newHead.y >= GRID_HEIGHT
+  ) {
+    gameOver = true;
+    return;
+  }
+
+  if (snake.some((seg) => seg.x === newHead.x && seg.y === newHead.y)) {
+    gameOver = true;
+    return;
+  }
+
+  snake.unshift(newHead);
+
+  if (newHead.x === food.x && newHead.y === food.y) {
+    score += 1;
+    placeFood();
+  } else {
+    snake.pop();
+  }
+}
+
+function draw(): void {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#e74c3c";
+  ctx.fillRect(
+    food.x * TILE_SIZE,
+    food.y * TILE_SIZE,
+    TILE_SIZE - 2,
+    TILE_SIZE - 2
+  );
+
+  ctx.fillStyle = "#2ecc71";
+  for (const seg of snake) {
+    ctx.fillRect(
+      seg.x * TILE_SIZE,
+      seg.y * TILE_SIZE,
+      TILE_SIZE - 2,
+      TILE_SIZE - 2
+    );
+  }
+
+  if (gameOver) {
+    ctx.fillStyle = "#fff";
+    ctx.font = "30px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2);
+  }
+
+  scoreEl.textContent = String(score);
+}
+
+function gameLoop(timestamp: number): void {
+  if (!lastMoveTime) {
+    lastMoveTime = timestamp;
+  }
+  if (timestamp - lastMoveTime >= MOVE_INTERVAL) {
+    if (!gameOver) {
+      move();
+    }
+    lastMoveTime = timestamp;
+  }
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+window.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (gameOver) {
+    if (e.key === " ") {
+      reset();
+    }
+    return;
+  }
+
+  switch (e.key) {
+    case "ArrowUp":
+      if (dy === 0) {
+        nextDx = 0;
+        nextDy = -1;
+      }
+      break;
+    case "ArrowDown":
+      if (dy === 0) {
+        nextDx = 0;
+        nextDy = 1;
+      }
+      break;
+    case "ArrowLeft":
+      if (dx === 0) {
+        nextDx = -1;
+        nextDy = 0;
+      }
+      break;
+    case "ArrowRight":
+      if (dx === 0) {
+        nextDx = 1;
+        nextDy = 0;
+      }
+      break;
+  }
+});
+
+reset();
+requestAnimationFrame(gameLoop);
+```
+
+This looks solid. I'll output exactly this.

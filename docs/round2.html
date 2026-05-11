@@ -1,0 +1,196 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Snake LLM Bench — Round 2 — strict spec</title>
+<style>
+  body{font:14px/1.4 system-ui,sans-serif;margin:1em;background:#111;color:#eee}
+  a{color:#7cf;text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-size:12px;color:#999}
+  table{border-collapse:collapse;width:100%;max-width:1200px}
+  td,th{padding:8px 10px;border-bottom:1px solid #2a2a2a;text-align:left;vertical-align:top}
+  th{background:#1c1c1c;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#bbb}
+  .sub{font-size:12px;color:#888;margin-top:2px}
+  .notes{font-size:12px;color:#bbb;max-width:260px}
+  .files{font-size:12px;white-space:nowrap}
+  .traj{white-space:nowrap}
+  .chip{display:inline-block;padding:2px 7px;border-radius:8px;border:1px solid #444;font-size:11px;font-variant-numeric:tabular-nums}
+  .arrow{color:#666;margin:0 4px;font-size:11px}
+  h1{font-size:20px;margin-bottom:6px}
+  .meta{color:#888;font-size:13px;margin-bottom:14px}
+  .nav{margin-bottom:14px;font-size:13px}
+  .nav a{margin-right:12px}
+</style>
+<h1>Snake LLM Bench <span style="font-size:14px;color:#888;font-weight:normal">— Round 2 — strict spec</span></h1>
+<div class=nav><a href="index.html">← Round 1</a> · <a href="https://github.com/kion-dgl/snake-llm-bench">source on github</a></div>
+<div class=meta>21 model groups · sorted by final score, then retries used, then base-call speed</div>
+<table>
+<thead><tr><th>Model</th><th>Final score</th><th>Trajectory (per try)</th><th>Total time</th><th>Total tokens</th><th>Notes</th><th>Files</th></tr></thead>
+<tbody><tr>
+        <td><a href="runs2/google_gemini-2.5-flash__full/index.html">google/gemini-2.5-flash</a><div class=sub>full · <code>google_gemini-2.5-flash__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>10.4s</td>
+        <td>2.7k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/google_gemini-2.5-flash__full/index.html">play</a> · <a href="runs2/google_gemini-2.5-flash__full/raw.txt">raw</a> · <a href="runs2/google_gemini-2.5-flash__full/plan.md">plan</a> · <a href="runs2/google_gemini-2.5-flash__full/score.json">score</a> · <a href="runs2/google_gemini-2.5-flash__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/x-ai_grok-4.3__full/index.html">x-ai/grok-4.3</a><div class=sub>full · <code>x-ai_grok-4.3__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>23.7s</td>
+        <td>2.6k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/x-ai_grok-4.3__full/index.html">play</a> · <a href="runs2/x-ai_grok-4.3__full/raw.txt">raw</a> · <a href="runs2/x-ai_grok-4.3__full/plan.md">plan</a> · <a href="runs2/x-ai_grok-4.3__full/score.json">score</a> · <a href="runs2/x-ai_grok-4.3__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/claude-cli__full/index.html">claude-opus</a><div class=sub>full · <code>claude-cli__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>26.9s</td>
+        <td>3.3k</td>
+        <td class=notes>Run via `claude -p`. Cache tokens reflect CLI default-system-prompt overhead, not the eval prompt itself.</td>
+        <td class=files><a href="runs2/claude-cli__full/index.html">play</a> · <a href="runs2/claude-cli__full/raw.txt">raw</a> · <a href="runs2/claude-cli__full/plan.md">plan</a> · <a href="runs2/claude-cli__full/score.json">score</a> · <a href="runs2/claude-cli__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/mistral-large-3_675b-cloud__full/index.html">mistral-large-3:675b-cloud</a><div class=sub>full · <code>mistral-large-3_675b-cloud__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>31.4s</td>
+        <td>2.2k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/mistral-large-3_675b-cloud__full/index.html">play</a> · <a href="runs2/mistral-large-3_675b-cloud__full/raw.txt">raw</a> · <a href="runs2/mistral-large-3_675b-cloud__full/plan.md">plan</a> · <a href="runs2/mistral-large-3_675b-cloud__full/score.json">score</a> · <a href="runs2/mistral-large-3_675b-cloud__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/gpt-oss_120b-cloud__full/index.html">gpt-oss:120b-cloud</a><div class=sub>full · <code>gpt-oss_120b-cloud__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>46.5s</td>
+        <td>3.7k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/gpt-oss_120b-cloud__full/index.html">play</a> · <a href="runs2/gpt-oss_120b-cloud__full/raw.txt">raw</a> · <a href="runs2/gpt-oss_120b-cloud__full/plan.md">plan</a> · <a href="runs2/gpt-oss_120b-cloud__full/score.json">score</a> · <a href="runs2/gpt-oss_120b-cloud__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/openai_gpt-5-mini__full/index.html">openai/gpt-5-mini</a><div class=sub>full · <code>openai_gpt-5-mini__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>48.3s</td>
+        <td>4.6k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/openai_gpt-5-mini__full/index.html">play</a> · <a href="runs2/openai_gpt-5-mini__full/raw.txt">raw</a> · <a href="runs2/openai_gpt-5-mini__full/plan.md">plan</a> · <a href="runs2/openai_gpt-5-mini__full/score.json">score</a> · <a href="runs2/openai_gpt-5-mini__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/google_gemma-4-26b-a4b-it__full/index.html">google/gemma-4-26b-a4b-it</a><div class=sub>full · <code>google_gemma-4-26b-a4b-it__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>1m19s</td>
+        <td>2.7k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/google_gemma-4-26b-a4b-it__full/index.html">play</a> · <a href="runs2/google_gemma-4-26b-a4b-it__full/raw.txt">raw</a> · <a href="runs2/google_gemma-4-26b-a4b-it__full/plan.md">plan</a> · <a href="runs2/google_gemma-4-26b-a4b-it__full/score.json">score</a> · <a href="runs2/google_gemma-4-26b-a4b-it__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/kimi-k2.6_cloud__full/index.html">kimi-k2.6:cloud</a><div class=sub>full · <code>kimi-k2.6_cloud__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>3m12s</td>
+        <td>3.3k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/kimi-k2.6_cloud__full/index.html">play</a> · <a href="runs2/kimi-k2.6_cloud__full/raw.txt">raw</a> · <a href="runs2/kimi-k2.6_cloud__full/plan.md">plan</a> · <a href="runs2/kimi-k2.6_cloud__full/score.json">score</a> · <a href="runs2/kimi-k2.6_cloud__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/deepseek-v4-pro_cloud__full/index.html">deepseek-v4-pro:cloud</a><div class=sub>full · <code>deepseek-v4-pro_cloud__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>4m05s</td>
+        <td>7.7k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/deepseek-v4-pro_cloud__full/index.html">play</a> · <a href="runs2/deepseek-v4-pro_cloud__full/raw.txt">raw</a> · <a href="runs2/deepseek-v4-pro_cloud__full/plan.md">plan</a> · <a href="runs2/deepseek-v4-pro_cloud__full/score.json">score</a> · <a href="runs2/deepseek-v4-pro_cloud__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/openai_gpt-5-codex__full/index.html">openai/gpt-5-codex</a><div class=sub>full · <code>openai_gpt-5-codex__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>4m60s</td>
+        <td>48.6k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/openai_gpt-5-codex__full/index.html">play</a> · <a href="runs2/openai_gpt-5-codex__full/raw.txt">raw</a> · <a href="runs2/openai_gpt-5-codex__full/plan.md">plan</a> · <a href="runs2/openai_gpt-5-codex__full/score.json">score</a> · <a href="runs2/openai_gpt-5-codex__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/gpt-oss_20b__full/index.html">gpt-oss:20b</a><div class=sub>full · <code>gpt-oss_20b__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>12m43s</td>
+        <td>6.1k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/gpt-oss_20b__full/index.html">play</a> · <a href="runs2/gpt-oss_20b__full/raw.txt">raw</a> · <a href="runs2/gpt-oss_20b__full/plan.md">plan</a> · <a href="runs2/gpt-oss_20b__full/score.json">score</a> · <a href="runs2/gpt-oss_20b__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/anthropic_claude-haiku-4-5__full__retry1/index.html">anthropic/claude-haiku-4-5</a><div class=sub>full · <code>anthropic_claude-haiku-4-5__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="anthropic_claude-haiku-4-5__full">base 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#7ed957;color:#7ed957" title="anthropic_claude-haiku-4-5__full__retry1">r1 13/13</span></td>
+        <td>25.5s<div class=sub>sum of 2 calls</div></td>
+        <td>5.8k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/anthropic_claude-haiku-4-5__full__retry1/index.html">play</a> · <a href="runs2/anthropic_claude-haiku-4-5__full/raw.txt">raw</a> · <a href="runs2/anthropic_claude-haiku-4-5__full/plan.md">plan</a> · <a href="runs2/anthropic_claude-haiku-4-5__full__retry1/score.json">score</a> · <a href="runs2/anthropic_claude-haiku-4-5__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/x-ai_grok-code-fast-1__full__retry1/index.html">x-ai/grok-code-fast-1</a><div class=sub>full · <code>x-ai_grok-code-fast-1__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="x-ai_grok-code-fast-1__full">base 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#7ed957;color:#7ed957" title="x-ai_grok-code-fast-1__full__retry1">r1 13/13</span></td>
+        <td>46.0s<div class=sub>sum of 2 calls</div></td>
+        <td>6.6k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/x-ai_grok-code-fast-1__full__retry1/index.html">play</a> · <a href="runs2/x-ai_grok-code-fast-1__full/raw.txt">raw</a> · <a href="runs2/x-ai_grok-code-fast-1__full/plan.md">plan</a> · <a href="runs2/x-ai_grok-code-fast-1__full__retry1/score.json">score</a> · <a href="runs2/x-ai_grok-code-fast-1__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/gemma4_31b-cloud__full__retry1/index.html">gemma4:31b-cloud</a><div class=sub>full · <code>gemma4_31b-cloud__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="gemma4_31b-cloud__full">base 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#7ed957;color:#7ed957" title="gemma4_31b-cloud__full__retry1">r1 13/13</span></td>
+        <td>40.3s<div class=sub>sum of 2 calls</div></td>
+        <td>4.7k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/gemma4_31b-cloud__full__retry1/index.html">play</a> · <a href="runs2/gemma4_31b-cloud__full/raw.txt">raw</a> · <a href="runs2/gemma4_31b-cloud__full/plan.md">plan</a> · <a href="runs2/gemma4_31b-cloud__full__retry1/score.json">score</a> · <a href="runs2/gemma4_31b-cloud__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/meta-llama_llama-4-scout__full__retry1/index.html">meta-llama/llama-4-scout</a><div class=sub>full · <code>meta-llama_llama-4-scout__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="meta-llama_llama-4-scout__full">base 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#7ed957;color:#7ed957" title="meta-llama_llama-4-scout__full__retry1">r1 13/13</span></td>
+        <td>36.7s<div class=sub>sum of 2 calls</div></td>
+        <td>4.0k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/meta-llama_llama-4-scout__full__retry1/index.html">play</a> · <a href="runs2/meta-llama_llama-4-scout__full/raw.txt">raw</a> · <a href="runs2/meta-llama_llama-4-scout__full/plan.md">plan</a> · <a href="runs2/meta-llama_llama-4-scout__full__retry1/score.json">score</a> · <a href="runs2/meta-llama_llama-4-scout__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/glm-5_cloud__full__retry1/index.html">glm-5:cloud</a><div class=sub>full · <code>glm-5_cloud__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="glm-5_cloud__full">base 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#7ed957;color:#7ed957" title="glm-5_cloud__full__retry1">r1 13/13</span></td>
+        <td>4m22s<div class=sub>sum of 2 calls</div></td>
+        <td>32.4k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/glm-5_cloud__full__retry1/index.html">play</a> · <a href="runs2/glm-5_cloud__full/raw.txt">raw</a> · <a href="runs2/glm-5_cloud__full/plan.md">plan</a> · <a href="runs2/glm-5_cloud__full__retry1/score.json">score</a> · <a href="runs2/glm-5_cloud__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/qwen3-coder_480b-cloud__full__retry1/index.html">qwen3-coder:480b-cloud</a><div class=sub>full · <code>qwen3-coder_480b-cloud__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="qwen3-coder_480b-cloud__full">base 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#7ed957;color:#7ed957" title="qwen3-coder_480b-cloud__full__retry1">r1 13/13</span></td>
+        <td>7m54s<div class=sub>sum of 2 calls</div></td>
+        <td>4.2k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/qwen3-coder_480b-cloud__full__retry1/index.html">play</a> · <a href="runs2/qwen3-coder_480b-cloud__full/raw.txt">raw</a> · <a href="runs2/qwen3-coder_480b-cloud__full/plan.md">plan</a> · <a href="runs2/qwen3-coder_480b-cloud__full__retry1/score.json">score</a> · <a href="runs2/qwen3-coder_480b-cloud__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/nemotron-3-super_cloud__full__retry2/index.html">nemotron-3-super:cloud</a><div class=sub>full · <code>nemotron-3-super_cloud__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="nemotron-3-super_cloud__full">base 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="nemotron-3-super_cloud__full__retry1">r1 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#7ed957;color:#7ed957" title="nemotron-3-super_cloud__full__retry2">r2 13/13</span></td>
+        <td>2m30s<div class=sub>sum of 3 calls</div></td>
+        <td>13.4k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/nemotron-3-super_cloud__full__retry2/index.html">play</a> · <a href="runs2/nemotron-3-super_cloud__full/raw.txt">raw</a> · <a href="runs2/nemotron-3-super_cloud__full/plan.md">plan</a> · <a href="runs2/nemotron-3-super_cloud__full__retry2/score.json">score</a> · <a href="runs2/nemotron-3-super_cloud__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/google_gemma-3-27b-it__full/index.html">google/gemma-3-27b-it</a><div class=sub>full · <code>google_gemma-3-27b-it__full</code></div></td>
+        <td style="color:#e6c84c;font-weight:600">6/7</td>
+        <td class=traj><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="google_gemma-3-27b-it__full">base 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="google_gemma-3-27b-it__full__retry1">r1 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="google_gemma-3-27b-it__full__retry2">r2 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="google_gemma-3-27b-it__full__retry3">r3 6/7</span></td>
+        <td>4m47s<div class=sub>sum of 4 calls</div></td>
+        <td>9.1k</td>
+        <td class=notes>failed: ts_compiles</td>
+        <td class=files><a href="runs2/google_gemma-3-27b-it__full/index.html">play</a> · <a href="runs2/google_gemma-3-27b-it__full/raw.txt">raw</a> · <a href="runs2/google_gemma-3-27b-it__full/plan.md">plan</a> · <a href="runs2/google_gemma-3-27b-it__full__retry3/score.json">score</a> · <a href="runs2/google_gemma-3-27b-it__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/qwen3-coder-next_cloud__full/index.html">qwen3-coder-next:cloud</a><div class=sub>full · <code>qwen3-coder-next_cloud__full</code></div></td>
+        <td style="color:#e6c84c;font-weight:600">6/7</td>
+        <td class=traj><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="qwen3-coder-next_cloud__full">base 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="qwen3-coder-next_cloud__full__retry1">r1 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="qwen3-coder-next_cloud__full__retry2">r2 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="qwen3-coder-next_cloud__full__retry3">r3 6/7</span></td>
+        <td>4m55s<div class=sub>sum of 4 calls</div></td>
+        <td>8.2k</td>
+        <td class=notes>failed: ts_compiles</td>
+        <td class=files><a href="runs2/qwen3-coder-next_cloud__full/index.html">play</a> · <a href="runs2/qwen3-coder-next_cloud__full/raw.txt">raw</a> · <a href="runs2/qwen3-coder-next_cloud__full/plan.md">plan</a> · <a href="runs2/qwen3-coder-next_cloud__full__retry3/score.json">score</a> · <a href="runs2/qwen3-coder-next_cloud__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/gemma4_26b__full/index.html">gemma4:26b</a><div class=sub>full · <code>gemma4_26b__full</code></div></td>
+        <td style="color:#666;font-weight:600">0/0</td>
+        <td class=traj><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="gemma4_26b__full">base 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="gemma4_26b__full__retry1">r1 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="gemma4_26b__full__retry2">r2 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#666;color:#666" title="gemma4_26b__full__retry3">r3 0/0</span></td>
+        <td>90m51s<div class=sub>sum of 4 calls</div></td>
+        <td>49.2k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/gemma4_26b__full/index.html">play</a> · <a href="runs2/gemma4_26b__full/raw.txt">raw</a> · <a href="runs2/gemma4_26b__full/plan.md">plan</a> · <a href="runs2/gemma4_26b__full__retry3/score.json">score</a> · <a href="runs2/gemma4_26b__full/meta.json">meta</a></td>
+      </tr></tbody>
+</table>

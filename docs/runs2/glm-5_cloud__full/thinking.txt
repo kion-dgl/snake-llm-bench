@@ -1,0 +1,1855 @@
+The user wants me to build a Snake game with very specific requirements. Let me carefully go through all the specifications and implement them exactly.
+
+Key requirements:
+1. Grid: 20x20 cells, each cell 20px, canvas 400x400
+2. Starting snake: length 3, head at (10,10), body at (9,10) and (8,10), moving right
+3. Initial tick: 150ms, speeds up by 10ms every 5 apples, min 60ms
+4. Apple spawns on random empty cell
+5. Game over: wall collision or body collision (except tail that's about to vacate)
+6. Starts paused, Space to start
+7. No wrap-around
+8. Controls: Arrow keys/WASD for direction, Space for pause/start, R for restart
+9. UI: h1, Score, High (persisted in localStorage), canvas, help text
+10. Colors: page bg #111, canvas bg #000, snake body #3aa635, snake head #7ed957, apple #c0392b, text #fff
+
+Let me write the code:
+
+For index.html:
+- doctype html
+- viewport meta
+- title Snake
+- inline style with page-level styles
+- h1, score div, high div, canvas, help text
+- script src="snake.js" defer (no type="module")
+
+For snake.ts:
+- Types Cell and Direction
+- Constants GRID, CELL, INITIAL_TICK_MS, MIN_TICK_MS, SPEEDUP_EVERY, SPEEDUP_DELTA
+- Game class with constructor, start, togglePause, restart
+- Private state: snake, dir, pendingDir, food, score, high, tickMs, alive, started, paused
+- Top-level setup with keydown listener
+
+Let me implement this carefully:
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;
+const SPEEDUP_DELTA = 10;
+
+class Game {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private scoreEl: HTMLElement;
+  private highEl: HTMLElement;
+  
+  private snake: Cell[];
+  private dir: Direction;
+  private pendingDir: Direction | null;
+  private food: Cell;
+  private score: number;
+  private high: number;
+  private tickMs: number;
+  private alive: boolean;
+  private started: boolean;
+  private paused: boolean;
+  private tickId: number | null;
+  
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+    
+    // Load high score from localStorage
+    const storedHigh = localStorage.getItem('snake.high');
+    this.high = storedHigh ? parseInt(storedHigh, 10) : 0;
+    
+    this.restart();
+  }
+  
+  start(): void {
+    if (!this.started && !this.alive) return;
+    this.started = true;
+    this.paused = false;
+    this.scheduleTick();
+    this.draw();
+  }
+  
+  togglePause(): void {
+    if (!this.started || !this.alive) return;
+    this.paused = !this.paused;
+    if (this.paused) {
+      this.cancelTick();
+    } else {
+      this.scheduleTick();
+    }
+    this.draw();
+  }
+  
+  restart(): void {
+    this.cancelTick();
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 }; // moving right
+    this.pendingDir = null;
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = true;
+    this.started = false;
+    this.paused = true;
+    this.spawnFood();
+    this.updateUI();
+    this.draw();
+  }
+  
+  // ... more methods
+}
+```
+
+Wait, I need to think about the tail collision exception more carefully. The spec says "The snake may chase its own tail by exactly one cell — i.e. the tail cell that is about to vacate is not counted as a collision."
+
+This means when checking collision, we should exclude the tail cell from the body segments we check against, because the tail will move away before the head arrives (unless the snake grows).
+
+Actually, let me re-read: "The snake may chase its own tail by exactly one cell" - this means if the head is about to move into the current tail position, it's allowed because the tail will vacate. But if the snake just ate an apple and is growing, the tail won't vacate... hmm.
+
+Actually, I think the logic is:
+1. Move the snake (add new head, remove tail unless growing)
+2. Check if new head collides with body
+
+But the spec says the tail that's "about to vacate" doesn't count. So we should check collision against all body segments except the current tail (the last segment).
+
+Let me think about this more carefully:
+- Snake is at positions [head, ..., tail]
+- When we move, we add a new head position and remove the tail (unless growing)
+- Collision check should be: is new head position in [head+1, ..., tail-1]? (excluding the current tail)
+
+Actually, I think the simplest interpretation is: when checking if the new head position collides with the body, we exclude the tail segment from the check. This allows the snake to chase its tail.
+
+Let me implement the tick logic:
+
+```typescript
+private tick(): void {
+  if (!this.alive || this.paused) return;
+  
+  // Apply pending direction
+  if (this.pendingDir) {
+    this.dir = this.pendingDir;
+    this.pendingDir = null;
+  }
+  
+  // Calculate new head position
+  const head = this.snake[0];
+  const newHead: Cell = {
+    x: head.x + this.dir.x,
+    y: head.y + this.dir.y
+  };
+  
+  // Check wall collision
+  if (newHead.x < 0 || newHead.x >= GRID || newHead.y < 0 || newHead.y >= GRID) {
+    this.gameOver();
+    return;
+  }
+  
+  // Check body collision (excluding tail)
+  const bodyToCheck = this.snake.slice(0, -1); // all but tail
+  for (const seg of bodyToCheck) {
+    if (seg.x === newHead.x && seg.y === newHead.y) {
+      this.gameOver();
+      return;
+    }
+  }
+  
+  // Move snake
+  this.snake.unshift(newHead);
+  
+  // Check if eating food
+  if (newHead.x === this.food.x && newHead.y === this.food.y) {
+    this.score++;
+    this.updateUI();
+    if (this.score % SPEEDUP_EVERY === 0) {
+      this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+    }
+    this.spawnFood();
+  } else {
+    this.snake.pop(); // remove tail if not growing
+  }
+  
+  this.draw();
+  this.scheduleTick();
+}
+```
+
+Wait, there's an issue. If the snake just ate food, it grows, so the tail doesn't move. In that case, the new head shouldn't be allowed to be at the old tail position because the tail is still there.
+
+Let me re-think:
+- If NOT eating: snake moves, tail vacates. New head can be at old tail position.
+- If eating: snake grows, tail stays. New head cannot be at old tail position.
+
+So the collision check should be:
+- If eating: check against entire body including tail
+- If not eating: check against body excluding tail
+
+But we don't know if we're eating until we check the new head position against food...
+
+Actually, let me re-read the spec: "The snake may chase its own tail by exactly one cell — i.e. the tail cell that is about to vacate is not counted as a collision."
+
+I think this means: when checking collision, we always exclude the tail from the body check, because the tail is "about to vacate". But if the snake is growing (eating food), the tail doesn't vacate... 
+
+Hmm, this is tricky. Let me think about it differently:
+
+The collision check happens BEFORE the move. At that point, we don't know if the snake will grow. But we can check:
+1. Is the new head position the same as the food position? If yes, the snake will grow.
+2. If growing, check collision against entire body.
+3. If not growing, check collision against body excluding tail.
+
+Actually, let me simplify: the spec says the tail that's "about to vacate" doesn't count. If the snake is about to eat, the tail won't vacate. So:
+
+```typescript
+// Check if will eat food
+const willEat = newHead.x === this.food.x && newHead.y === this.food.y;
+
+// Check body collision
+const bodyToCheck = willEat ? this.snake : this.snake.slice(0, -1);
+for (const seg of bodyToCheck) {
+  if (seg.x === newHead.x && seg.y === newHead.y) {
+    this.gameOver();
+    return;
+  }
+}
+```
+
+This makes sense! If the snake will eat, the tail stays, so we check against the full body. If not, the tail vacates, so we exclude it from the check.
+
+Now let me write the full implementation:
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;
+const SPEEDUP_DELTA = 10;
+
+class Game {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private scoreEl: HTMLElement;
+  private highEl: HTMLElement;
+  
+  private snake!: Cell[];
+  private dir!: Direction;
+  private pendingDir: Direction | null = null;
+  private food!: Cell;
+  private score!: number;
+  private high!: number;
+  private tickMs!: number;
+  private alive!: boolean;
+  private started!: boolean;
+  private paused!: boolean;
+  private tickId: number | null = null;
+  
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+    
+    // Load high score from localStorage
+    const storedHigh = localStorage.getItem('snake.high');
+    this.high = storedHigh ? parseInt(storedHigh, 10) : 0;
+    this.highEl.textContent = `High: ${this.high}`;
+    
+    this.restart();
+  }
+  
+  start(): void {
+    if (this.started) return;
+    this.started = true;
+    this.paused = false;
+    this.scheduleTick();
+    this.draw();
+  }
+  
+  togglePause(): void {
+    if (!this.started || !this.alive) return;
+    this.paused = !this.paused;
+    if (this.paused) {
+      this.cancelTick();
+    } else {
+      this.scheduleTick();
+    }
+    this.draw();
+  }
+  
+  restart(): void {
+    this.cancelTick();
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = true;
+    this.started = false;
+    this.paused = true;
+    this.spawnFood();
+    this.updateUI();
+    this.draw();
+  }
+  
+  setDirection(newDir: Direction): void {
+    if (!this.alive || this.paused) return;
+    // Ignore opposite direction
+    if (this.dir.x + newDir.x === 0 && this.dir.y + newDir.y === 0) return;
+    this.pendingDir = newDir;
+  }
+  
+  private spawnFood(): void {
+    const occupied = new Set<string>();
+    for (const cell of this.snake) {
+      occupied.add(`${cell.x},${cell.y}`);
+    }
+    
+    let x: number, y: number;
+    do {
+      x = Math.floor(Math.random() * GRID);
+      y = Math.floor(Math.random() * GRID);
+    } while (occupied.has(`${x},${y}`));
+    
+    this.food = { x, y };
+  }
+  
+  private scheduleTick(): void {
+    this.cancelTick();
+    this.tickId = window.setTimeout(() => this.tick(), this.tickMs);
+  }
+  
+  private cancelTick(): void {
+    if (this.tickId !== null) {
+      clearTimeout(this.tickId);
+      this.tickId = null;
+    }
+  }
+  
+  private tick(): void {
+    if (!this.alive || this.paused) return;
+    
+    // Apply pending direction
+    if (this.pendingDir) {
+      this.dir = this.pendingDir;
+      this.pendingDir = null;
+    }
+    
+    // Calculate new head position
+    const head = this.snake[0];
+    const newHead: Cell = {
+      x: head.x + this.dir.x,
+      y: head.y + this.dir.y
+    };
+    
+    // Check wall collision
+    if (newHead.x < 0 || newHead.x >= GRID || newHead.y < 0 || newHead.y >= GRID) {
+      this.gameOver();
+      return;
+    }
+    
+    // Check if will eat food
+    const willEat = newHead.x === this.food.x && newHead.y === this.food.y;
+    
+    // Check body collision
+    const bodyToCheck = willEat ? this.snake : this.snake.slice(0, -1);
+    for (const seg of bodyToCheck) {
+      if (seg.x === newHead.x && seg.y === newHead.y) {
+        this.gameOver();
+        return;
+      }
+    }
+    
+    // Move snake
+    this.snake.unshift(newHead);
+    
+    // Handle food
+    if (willEat) {
+      this.score++;
+      if (this.score > this.high) {
+        this.high = this.score;
+        localStorage.setItem('snake.high', String(this.high));
+      }
+      this.updateUI();
+      if (this.score % SPEEDUP_EVERY === 0) {
+        this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+      }
+      this.spawnFood();
+    } else {
+      this.snake.pop();
+    }
+    
+    this.draw();
+    this.scheduleTick();
+  }
+  
+  private gameOver(): void {
+    this.alive = false;
+    this.cancelTick();
+    this.draw();
+  }
+  
+  private updateUI(): void {
+    this.scoreEl.textContent = `Score: ${this.score}`;
+    this.highEl.textContent = `High: ${this.high}`;
+  }
+  
+  private draw(): void {
+    const ctx = this.ctx;
+    
+    // Clear canvas
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Draw food
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+    
+    // Draw snake
+    for (let i = 0; i < this.snake.length; i++) {
+      const cell = this.snake[i];
+      ctx.fillStyle = i === 0 ? '#7ed957' : '#3aa635';
+      ctx.fillRect(cell.x * CELL, cell.y * CELL, CELL, CELL);
+    }
+    
+    // Draw overlay text
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    
+    if (!this.alive) {
+      ctx.fillText('Game Over — press R to restart', centerX, centerY);
+    } else if (!this.started) {
+      ctx.fillText('Press Space to start', centerX, centerY);
+    } else if (this.paused) {
+      ctx.fillText('Paused', centerX, centerY);
+    }
+  }
+}
+
+// Top-level setup
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const scoreEl = document.getElementById('score') as HTMLElement;
+const highEl = document.getElementById('high') as HTMLElement;
+
+const game = new Game(canvas, scoreEl, highEl);
+
+window.addEventListener('keydown', (e) => {
+  switch (e.key) {
+    case 'ArrowUp':
+    case 'w':
+    case 'W':
+      e.preventDefault();
+      game.setDirection({ x: 0, y: -1 });
+      break;
+    case 'ArrowDown':
+    case 's':
+    case 'S':
+      e.preventDefault();
+      game.setDirection({ x: 0, y: 1 });
+      break;
+    case 'ArrowLeft':
+    case 'a':
+    case 'A':
+      e.preventDefault();
+      game.setDirection({ x: -1, y: 0 });
+      break;
+    case 'ArrowRight':
+    case 'd':
+    case 'D':
+      e.preventDefault();
+      game.setDirection({ x: 1, y: 0 });
+      break;
+    case ' ':
+      e.preventDefault();
+      if (!game['started']) {
+        game.start();
+      } else {
+        game.togglePause();
+      }
+      break;
+    case 'r':
+    case 'R':
+      e.preventDefault();
+      game.restart();
+      break;
+  }
+});
+```
+
+Wait, I'm accessing a private property `game['started']` from outside the class. That's not ideal. Let me add a public method or change the logic.
+
+Actually, looking at the spec again, the `start()` method is supposed to be called when Space is pressed and the game hasn't started yet. And `togglePause()` is for pausing/resuming during play. So I need a way to know if the game has started.
+
+Let me add a public method `isStarted()` or just check the state differently. Actually, looking at the spec:
+
+"start(): void; // begins the tick (called from Space when paused before first start)"
+
+So `start()` should only be called when the game hasn't started yet. And `togglePause()` should be called when the game has started. The methods themselves should handle the state correctly.
+
+Let me revise:
+
+```typescript
+start(): void {
+  if (this.started) return; // already started, do nothing
+  this.started = true;
+  this.paused = false;
+  this.scheduleTick();
+  this.draw();
+}
+
+togglePause(): void {
+  if (!this.started || !this.alive) return; // can't pause if not started or dead
+  this.paused = !this.paused;
+  if (this.paused) {
+    this.cancelTick();
+  } else {
+    this.scheduleTick();
+  }
+  this.draw();
+}
+```
+
+And in the key handler:
+
+```typescript
+case ' ':
+  e.preventDefault();
+  if (!game.isStarted()) {
+    game.start();
+  } else {
+    game.togglePause();
+  }
+  break;
+```
+
+I need to add `isStarted()` method. Or I could make `started` public, but that's not ideal.
+
+Actually, let me just add a public method `isStarted()`:
+
+```typescript
+isStarted(): boolean {
+  return this.started;
+}
+```
+
+Or better, I can combine the logic in the key handler by just calling both methods and letting them handle the state:
+
+Actually, looking at the spec more carefully:
+
+"start(): void; // begins the tick (called from Space when paused before first start)"
+
+This suggests that `start()` is specifically for starting the game from the initial paused state. And `togglePause()` is for pausing/resuming during play.
+
+So the key handler should be:
+- If not started: call `start()`
+- If started and alive: call `togglePause()`
+
+Let me add a method to check if the game can be paused:
+
+```typescript
+canPause(): boolean {
+  return this.started && this.alive;
+}
+
+needsStart(): boolean {
+  return !this.started;
+}
+```
+
+Or simpler, just expose the state:
+
+Actually, let me just make the key handler logic simpler. The spec says:
+- Space: Start the game on first press; toggle pause/resume thereafter
+
+So:
+- First Space press: start the game
+- Subsequent Space presses: toggle pause/resume
+
+I can track this with the `started` flag. Let me add a public getter:
+
+```typescript
+get isStarted(): boolean {
+  return this.started;
+}
+```
+
+Or I can just handle it in the key handler by checking if the game is in the initial state. Let me think...
+
+Actually, the simplest approach is to have the key handler call `start()` if the game hasn't started, and `togglePause()` otherwise. The methods themselves will handle the state correctly.
+
+But I need to know if the game has started from outside. Let me add a public method:
+
+```typescript
+hasStarted(): boolean {
+  return this.started;
+}
+```
+
+OK let me finalize the code:
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;
+const SPEEDUP_DELTA = 10;
+
+class Game {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private scoreEl: HTMLElement;
+  private highEl: HTMLElement;
+  
+  private snake!: Cell[];
+  private dir!: Direction;
+  private pendingDir: Direction | null = null;
+  private food!: Cell;
+  private score!: number;
+  private high!: number;
+  private tickMs!: number;
+  private alive!: boolean;
+  private started!: boolean;
+  private paused!: boolean;
+  private tickId: number | null = null;
+  
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+    
+    const storedHigh = localStorage.getItem('snake.high');
+    this.high = storedHigh ? parseInt(storedHigh, 10) : 0;
+    this.highEl.textContent = `High: ${this.high}`;
+    
+    this.restart();
+  }
+  
+  start(): void {
+    if (this.started) return;
+    this.started = true;
+    this.paused = false;
+    this.scheduleTick();
+    this.draw();
+  }
+  
+  togglePause(): void {
+    if (!this.started || !this.alive) return;
+    this.paused = !this.paused;
+    if (this.paused) {
+      this.cancelTick();
+    } else {
+      this.scheduleTick();
+    }
+    this.draw();
+  }
+  
+  restart(): void {
+    this.cancelTick();
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = true;
+    this.started = false;
+    this.paused = true;
+    this.spawnFood();
+    this.updateUI();
+    this.draw();
+  }
+  
+  hasStarted(): boolean {
+    return this.started;
+  }
+  
+  setDirection(newDir: Direction): void {
+    if (!this.alive || this.paused) return;
+    if (this.dir.x + newDir.x === 0 && this.dir.y + newDir.y === 0) return;
+    this.pendingDir = newDir;
+  }
+  
+  private spawnFood(): void {
+    const occupied = new Set<string>();
+    for (const cell of this.snake) {
+      occupied.add(`${cell.x},${cell.y}`);
+    }
+    
+    let x: number, y: number;
+    do {
+      x = Math.floor(Math.random() * GRID);
+      y = Math.floor(Math.random() * GRID);
+    } while (occupied.has(`${x},${y}`));
+    
+    this.food = { x, y };
+  }
+  
+  private scheduleTick(): void {
+    this.cancelTick();
+    this.tickId = window.setTimeout(() => this.tick(), this.tickMs);
+  }
+  
+  private cancelTick(): void {
+    if (this.tickId !== null) {
+      clearTimeout(this.tickId);
+      this.tickId = null;
+    }
+  }
+  
+  private tick(): void {
+    if (!this.alive || this.paused) return;
+    
+    if (this.pendingDir) {
+      this.dir = this.pendingDir;
+      this.pendingDir = null;
+    }
+    
+    const head = this.snake[0];
+    const newHead: Cell = {
+      x: head.x + this.dir.x,
+      y: head.y + this.dir.y
+    };
+    
+    if (newHead.x < 0 || newHead.x >= GRID || newHead.y < 0 || newHead.y >= GRID) {
+      this.gameOver();
+      return;
+    }
+    
+    const willEat = newHead.x === this.food.x && newHead.y === this.food.y;
+    const bodyToCheck = willEat ? this.snake : this.snake.slice(0, -1);
+    
+    for (const seg of bodyToCheck) {
+      if (seg.x === newHead.x && seg.y === newHead.y) {
+        this.gameOver();
+        return;
+      }
+    }
+    
+    this.snake.unshift(newHead);
+    
+    if (willEat) {
+      this.score++;
+      if (this.score > this.high) {
+        this.high = this.score;
+        localStorage.setItem('snake.high', String(this.high));
+      }
+      this.updateUI();
+      if (this.score % SPEEDUP_EVERY === 0) {
+        this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+      }
+      this.spawnFood();
+    } else {
+      this.snake.pop();
+    }
+    
+    this.draw();
+    this.scheduleTick();
+  }
+  
+  private gameOver(): void {
+    this.alive = false;
+    this.cancelTick();
+    this.draw();
+  }
+  
+  private updateUI(): void {
+    this.scoreEl.textContent = `Score: ${this.score}`;
+    this.highEl.textContent = `High: ${this.high}`;
+  }
+  
+  private draw(): void {
+    const ctx = this.ctx;
+    
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+    
+    for (let i = 0; i < this.snake.length; i++) {
+      const cell = this.snake[i];
+      ctx.fillStyle = i === 0 ? '#7ed957' : '#3aa635';
+      ctx.fillRect(cell.x * CELL, cell.y * CELL, CELL, CELL);
+    }
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    
+    if (!this.alive) {
+      ctx.fillText('Game Over — press R to restart', centerX, centerY);
+    } else if (!this.started) {
+      ctx.fillText('Press Space to start', centerX, centerY);
+    } else if (this.paused) {
+      ctx.fillText('Paused', centerX, centerY);
+    }
+  }
+}
+
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const scoreEl = document.getElementById('score') as HTMLElement;
+const highEl = document.getElementById('high') as HTMLElement;
+
+const game = new Game(canvas, scoreEl, highEl);
+
+window.addEventListener('keydown', (e) => {
+  switch (e.key) {
+    case 'ArrowUp':
+    case 'w':
+    case 'W':
+      e.preventDefault();
+      game.setDirection({ x: 0, y: -1 });
+      break;
+    case 'ArrowDown':
+    case 's':
+    case 'S':
+      e.preventDefault();
+      game.setDirection({ x: 0, y: 1 });
+      break;
+    case 'ArrowLeft':
+    case 'a':
+    case 'A':
+      e.preventDefault();
+      game.setDirection({ x: -1, y: 0 });
+      break;
+    case 'ArrowRight':
+    case 'd':
+    case 'D':
+      e.preventDefault();
+      game.setDirection({ x: 1, y: 0 });
+      break;
+    case ' ':
+      e.preventDefault();
+      if (!game.hasStarted()) {
+        game.start();
+      } else {
+        game.togglePause();
+      }
+      break;
+    case 'r':
+    case 'R':
+      e.preventDefault();
+      game.restart();
+      break;
+  }
+});
+```
+
+Now for the HTML:
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+    }
+    #score, #high {
+      margin: 5px 0;
+    }
+    #game {
+      border: 2px solid #333;
+    }
+    .help {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <div id="score">Score: 0</div>
+  <div id="high">High: 0</div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <div class="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+  <script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+Wait, the spec says the script should be `snake.js` but I'm writing `snake.ts`. The user wants TypeScript code, so I should output `snake.ts` content. The HTML should reference `snake.js` because that's what would be compiled.
+
+Let me double-check the spec:
+- "Loads JS via `<script src="snake.js" defer></script>` — **no `type="module"`**."
+- "### `snake.ts`"
+
+So the HTML references `snake.js` (the compiled output), but I'm providing the TypeScript source as `snake.ts`.
+
+Let me also verify the colors:
+- Page background: `#111` ✓
+- Canvas background: `#000` ✓
+- Snake body: `#3aa635` ✓
+- Snake head: `#7ed957` ✓
+- Apple: `#c0392b` ✓
+- Text overlays: `#fff`, 20px sans-serif, centered ✓
+
+Let me also verify the UI order:
+1. h1 ✓
+2. Score line ✓
+3. High line ✓
+4. Canvas ✓
+5. Help text ✓
+
+And the text overlays:
+- Paused before first start: "Press Space to start" ✓
+- Paused after first start: "Paused" ✓
+- Game over: "Game Over — press R to restart" ✓
+
+Let me also verify the game mechanics:
+- Grid: 20x20 ✓
+- Cell size: 20px ✓
+- Canvas: 400x400 ✓
+- Starting snake: length 3, head at (10,10), body at (9,10) and (8,10), moving right ✓
+- Initial tick: 150ms ✓
+- Speed-up: every 5 apples, decrease by 10ms, min 60ms ✓
+- Apple spawn: random empty cell ✓
+- Game over: wall or body collision (except tail about to vacate) ✓
+- Starts paused ✓
+- No wrap-around ✓
+- Reverse direction prevention ✓
+
+Controls:
+- Arrow Up/W: up ✓
+- Arrow Down/S: down ✓
+- Arrow Left/A: left ✓
+- Arrow Right/D: right ✓
+- Space: start/pause ✓
+- R: restart ✓
+
+I think the code is complete. Let me review once more...
+
+Actually, I notice that the spec says the help text should be exactly: `Arrow keys or WASD to move · Space to start/pause · R to restart`
+
+Let me make sure that's correct in the HTML.
+
+Also, I should double-check the localStorage key: `snake.high` ✓
+
+One more thing: the spec says "When the game is **over**, draw `Game Over — press R to restart` centered on the canvas, and **stop the tick** (don't keep clearing/redrawing every frame)."
+
+My `gameOver()` method calls `cancelTick()` and then `draw()`, so the tick is stopped and the final frame is drawn. That should be correct.
+
+Actually, wait. Let me re-read the spec about the tail collision exception:
+
+"The snake may chase its own tail by exactly one cell — i.e. the tail cell that is *about* to vacate is not counted as a collision."
+
+I think my implementation is correct. When the snake is NOT eating, the tail will vacate, so we exclude it from the collision check. When the snake IS eating, the tail stays, so we include it in the collision check.
+
+But wait, there's a subtle issue. The spec says "the tail cell that is *about* to vacate". This implies that we should check if the tail is about to vacate, not just whether the snake is eating.
+
+Actually, I think my interpretation is correct. If the snake is eating, it grows, so the tail doesn't vacate. If not eating, the tail vacates. So checking `willEat` is the right approach.
+
+Hmm, but there's another consideration. What if the snake is length 3 and the head is about to move into the tail position? Let's trace through:
+
+Snake: [(10,10), (9,10), (8,10)] moving right
+New head: (11, 10)
+Not eating, so bodyToCheck = [(10,10), (9,10)] (excluding tail (8,10))
+No collision, so snake moves to [(11,10), (10,10), (9,10)]
+
+Now snake: [(11,10), (10,10), (9,10)] moving right
+New head: (12, 10)
+Not eating, so bodyToCheck = [(11,10), (10,10)] (excluding tail (9,10))
+No collision, so snake moves to [(12,10), (11,10), (10,10)]
+
+This seems correct. The tail is always excluded when not eating.
+
+But what if the snake turns around and chases its tail? Let's trace:
+
+Snake: [(10,10), (9,10), (8,10)] moving right
+Player presses down, then left, then up to chase tail...
+
+Actually, let me think of a simpler scenario. Snake is in a U-shape and the head is about to move into the tail position:
+
+Snake: [(5,5), (5,4), (5,3), (6,3), (7,3)] moving down
+New head: (5, 6)
+Not eating, so bodyToCheck = [(5,5), (5,4), (5,3), (6,3)] (excluding tail (7,3))
+No collision with (5,6), so snake moves.
+
+Now snake: [(5,6), (5,5), (5,4), (5,3), (6,3)] moving down
+New head: (5, 7)
+Not eating, so bodyToCheck = [(5,6), (5,5), (5,4), (5,3)] (excluding tail (6,3))
+No collision, so snake moves.
+
+This seems fine. The tail is always excluded when not eating.
+
+But what if the snake is about to eat and the food is at the tail position? That's impossible because food can't spawn on the snake.
+
+What if the snake is about to eat and the new head position is also a body segment (not the tail)?
+
+Snake: [(5,5), (5,4), (5,3)] moving right
+Food at (6, 5)
+New head: (6, 5)
+Eating, so bodyToCheck = [(5,5), (5,4), (5,3)] (full body)
+No collision with (6,5), so snake moves and grows.
+
+This is correct. The food is at (6,5), which is not on the snake, so no collision.
+
+What if the snake is about to eat and the new head position is the tail?
+
+This can't happen because food can't spawn on the snake, and the tail is part of the snake.
+
+What if the snake is about to eat and the new head position is a body segment (not head or tail)?
+
+Snake: [(5,5), (5,4), (5,3), (4,3), (3,3)] moving left
+Food at (4, 4) (hypothetically, but this is on the body, so it can't spawn there)
+
+Actually, food can't spawn on the snake, so this scenario is impossible.
+
+OK, I think my implementation is correct. Let me finalize the code.
+
+One more thing: I should make sure the canvas border is visible. The spec says "1px or 2px border so the play field is visible". I'm using `border: 2px solid #333;` which should be fine.
+
+Actually, let me re-read the spec about the help text format:
+
+"A line of help text: `Arrow keys or WASD to move · Space to start/pause · R to restart`."
+
+The text should be exactly that. Let me make sure I have the right character for the middle dot. It's `·` (U+00B7, middle dot).
+
+OK, I think the code is complete. Let me write the final version.
+
+Actually, I just realized I should double-check the TypeScript strict mode requirements. The spec says:
+
+"The class must compile under `--strict` including `strictPropertyInitialization` and `strictNullChecks`. Use `!` definite-assignment, inline initializers, or constructor-body assignments as needed."
+
+I'm using `!` for properties that are assigned in `restart()` which is called from the constructor. Let me verify:
+
+```typescript
+private snake!: Cell[];
+private dir!: Direction;
+private pendingDir: Direction | null = null;
+private food!: Cell;
+private score!: number;
+private high!: number;
+private tickMs!: number;
+private alive!: boolean;
+private started!: boolean;
+private paused!: boolean;
+```
+
+Actually, `high` is assigned in the constructor before `restart()` is called, so I should initialize it properly:
+
+```typescript
+constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+  this.canvas = canvas;
+  this.ctx = canvas.getContext('2d')!;
+  this.scoreEl = scoreEl;
+  this.highEl = highEl;
+  
+  const storedHigh = localStorage.getItem('snake.high');
+  this.high = storedHigh ? parseInt(storedHigh, 10) : 0;
+  this.highEl.textContent = `High: ${this.high}`;
+  
+  this.restart();
+}
+```
+
+So `high` is assigned in the constructor, not in `restart()`. But `restart()` also assigns `high`... wait, no, `restart()` doesn't assign `high`. Let me check:
+
+```typescript
+restart(): void {
+  this.cancelTick();
+  this.snake = [...];
+  this.dir = { x: 1, y: 0 };
+  this.pendingDir = null;
+  this.score = 0;
+  this.tickMs = INITIAL_TICK_MS;
+  this.alive = true;
+  this.started = false;
+  this.paused = true;
+  this.spawnFood();
+  this.updateUI();
+  this.draw();
+}
+```
+
+Right, `restart()` doesn't reset `high`. That's correct because the high score should persist across restarts.
+
+So the properties assigned in the constructor are:
+- `canvas`, `ctx`, `scoreEl`, `highEl` (from parameters or derived)
+- `high` (from localStorage)
+
+And the properties assigned in `restart()` are:
+- `snake`, `dir`, `pendingDir`, `food`, `score`, `tickMs`, `alive`, `started`, `paused`
+
+Since `restart()` is called from the constructor, all properties will be assigned before the constructor returns. But TypeScript's strict mode doesn't know that `restart()` assigns these properties, so I need to use `!` for them.
+
+Actually, let me reconsider. The spec says the private state "must include at minimum" these properties. I should make sure I have all of them:
+
+- snake: Cell[] ✓
+- dir: Direction ✓
+- pendingDir: Direction | null ✓
+- food: Cell ✓
+- score: number ✓
+- high: number ✓
+- tickMs: number ✓
+- alive: boolean ✓
+- started: boolean ✓
+- paused: boolean ✓
+
+I also have additional private properties:
+- canvas: HTMLCanvasElement
+- ctx: CanvasRenderingContext2D
+- scoreEl: HTMLElement
+- highEl: HTMLElement
+- tickId: number | null
+
+These are fine as additional private state.
+
+OK, I think the code is complete. Let me write the final version.
+
+Wait, I should also check if `parseInt` can return `NaN`. If `localStorage.getItem('snake.high')` returns a non-numeric string, `parseInt` will return `NaN`. Let me handle that:
+
+```typescript
+const storedHigh = localStorage.getItem('snake.high');
+this.high = storedHigh ? parseInt(storedHigh, 10) : 0;
+if (isNaN(this.high)) this.high = 0;
+```
+
+Or more concisely:
+
+```typescript
+const storedHigh = localStorage.getItem('snake.high');
+this.high = storedHigh ? (parseInt(storedHigh, 10) || 0) : 0;
+```
+
+Actually, `parseInt` returns `NaN` for non-numeric strings, and `NaN || 0` is `0` because `NaN` is falsy. So this should work:
+
+```typescript
+const storedHigh = localStorage.getItem('snake.high');
+this.high = storedHigh ? parseInt(storedHigh, 10) || 0 : 0;
+```
+
+Hmm, but `parseInt('abc', 10)` returns `NaN`, and `NaN || 0` is `0`. So this should handle invalid values.
+
+Actually, let me test: `parseInt('123', 10)` returns `123`. `parseInt('abc', 10)` returns `NaN`. `NaN || 0` is `0`. So the logic is correct.
+
+But wait, `parseInt('123abc', 10)` returns `123` (it parses until the first non-digit). That's probably fine for our use case.
+
+OK, let me finalize the code.
+
+Actually, I realize I should also handle the case where `localStorage` is not available (e.g., in private browsing mode). But the spec doesn't mention this, so I'll assume `localStorage` is available.
+
+Let me also make sure the canvas context is obtained correctly. `canvas.getContext('2d')` can return `null` if the context type is not supported, but for a 2D canvas, it should always return a context. I'm using `!` to assert it's not null, which is fine.
+
+OK, I think the code is complete. Let me write the final version.
+
+One more thing: the spec says the game should start paused. My `restart()` method sets `paused = true` and `started = false`, which is correct. The initial state is "paused before first start".
+
+And when Space is pressed:
+- If not started: call `start()` which sets `started = true` and `paused = false`
+- If started: call `togglePause()` which toggles `paused`
+
+This matches the spec.
+
+Let me also verify the direction handling. The spec says:
+
+"Reverse-into-self prevention: a key that requests the exact opposite of the current direction is ignored."
+
+My `setDirection` method checks:
+
+```typescript
+if (this.dir.x + newDir.x === 0 && this.dir.y + newDir.y === 0) return;
+```
+
+This checks if the new direction is the opposite of the current direction. For example:
+- Current: right (1, 0), New: left (-1, 0) → sum is (0, 0) → ignored ✓
+- Current: up (0, -1), New: down (0, 1) → sum is (0, 0) → ignored ✓
+
+This is correct.
+
+But wait, there's a subtle issue. The spec says "a key that requests the exact opposite of the current direction is ignored". But what if the player presses two direction keys quickly before the next tick? For example:
+1. Snake is moving right
+2. Player presses up (pendingDir = up)
+3. Player presses left (pendingDir = left)
+4. Next tick: dir = left, but this is opposite to the current dir (right), not the pending dir (up)
+
+Hmm, should the check be against `dir` or `pendingDir`? The spec says "current direction", which I interpret as `dir`. But if `pendingDir` is set, the next tick will apply it, so the effective direction is `pendingDir`.
+
+Actually, let me re-read the spec: "a key that requests the exact opposite of the current direction is ignored."
+
+I think "current direction" means the direction the snake is currently moving, which is `dir`. The `pendingDir` is the direction that will be applied on the next tick, but it hasn't been applied yet.
+
+So my check against `dir` is correct. But there's still an edge case:
+1. Snake is moving right (dir = right)
+2. Player presses up (pendingDir = up) - this is allowed
+3. Player presses left (pendingDir = left) - this is opposite to dir (right), so it should be ignored
+
+But wait, if the player presses up and then left before the next tick, the snake would turn up and then left, which could cause it to run into itself. Let me think...
+
+Actually, the spec says "a key that requests the exact opposite of the current direction is ignored". So if the snake is moving right, pressing left is ignored. But pressing up is allowed, and then pressing left (after up is applied) is also allowed.
+
+The issue is: what if the player presses up and then left in the same tick? The `pendingDir` would be left, and on the next tick, the snake would turn left (from right), which is a 180-degree turn.
+
+Hmm, but my check is against `dir`, not `pendingDir`. So:
+1. dir = right, pendingDir = null
+2. Press up: pendingDir = up (allowed, not opposite to right)
+3. Press left: pendingDir = left (allowed, not opposite to right... wait, left IS opposite to right)
+
+Oh, I see the issue. My check is against `dir`, so pressing left when dir is right would be ignored. But the player pressed up first, so the effective direction should be up, not right.
+
+Let me think about this more carefully. The spec says "a key that requests the exact opposite of the current direction is ignored". I think "current direction" means the direction the snake is currently moving, which is `dir`. But if `pendingDir` is set, the snake will turn to `pendingDir` on the next tick.
+
+So the question is: should the check be against `dir` or `pendingDir`?
+
+I think the safest interpretation is: the check should be against the direction that will be applied on the next tick, which is `pendingDir` if set, otherwise `dir`.
+
+Let me update the check:
+
+```typescript
+setDirection(newDir: Direction): void {
+  if (!this.alive || this.paused) return;
+  const currentDir = this.pendingDir || this.dir;
+  if (currentDir.x + newDir.x === 0 && currentDir.y + newDir.y === 0) return;
+  this.pendingDir = newDir;
+}
+```
+
+This way, if the player presses up and then left in the same tick:
+1. dir = right, pendingDir = null
+2. Press up: currentDir = right, newDir = up (not opposite), pendingDir = up
+3. Press left: currentDir = up (pendingDir), newDir = left (not opposite to up), pendingDir = left
+
+So the snake would turn left on the next tick, which is a 90-degree turn from up, not a 180-degree turn from right. This seems correct.
+
+But wait, let me re-read the spec again: "a key that requests the exact opposite of the current direction is ignored."
+
+Hmm, "current direction" could mean the direction the snake is currently moving (dir), not the pending direction. Let me think about the game mechanics...
+
+In the original Snake game, the direction change happens on the next tick. So if the snake is moving right and the player presses up, the snake will turn up on the next tick. If the player then presses left (before the tick), the snake would turn left on the next tick.
+
+But this could cause the snake to turn 180 degrees in a single tick, which would make it run into itself. To prevent this, the game should ignore the second key press if it's opposite to the first key press.
+
+So the check should be against `pendingDir` if set, otherwise `dir`. This prevents the snake from turning 180 degrees in a single tick.
+
+Let me update the code:
+
+```typescript
+setDirection(newDir: Direction): void {
+  if (!this.alive || this.paused) return;
+  const effectiveDir = this.pendingDir || this.dir;
+  if (effectiveDir.x + newDir.x === 0 && effectiveDir.y + newDir.y === 0) return;
+  this.pendingDir = newDir;
+}
+```
+
+Actually, I realize there's another interpretation. The spec says "a key that requests the exact opposite of the current direction is ignored". This could mean:
+1. The check is against `dir` (the direction the snake is currently moving)
+2. The check is against `pendingDir` if set, otherwise `dir` (the direction that will be applied on the next tick)
+
+I think interpretation 2 is more sensible for gameplay, but interpretation 1 is what the spec literally says.
+
+Let me go with interpretation 1 (check against `dir`) since that's what the spec says. If the player presses up and then left in the same tick, the left press would be ignored because it's opposite to `dir` (right). The snake would turn up on the next tick.
+
+Actually, wait. Let me re-read: "a key that requests the exact opposite of the current direction is ignored."
+
+If the snake is moving right (dir = right) and the player presses left, that's opposite, so it's ignored. But if the player presses up first (pendingDir = up) and then left, is left opposite to the "current direction"?
+
+The "current direction" is right (dir), not up (pendingDir). So left is opposite to right, and should be ignored.
+
+But this seems weird from a gameplay perspective. If the player presses up and then left quickly, the left press is ignored, and the snake turns up. But if the player presses up, waits for a tick, and then presses left, the snake turns up and then left.
+
+I think the spec is intentionally simple: the check is against `dir`, not `pendingDir`. This prevents the snake from reversing into itself, but it also means rapid key presses might not work as expected.
+
+Let me stick with the simple interpretation: check against `dir`.
+
+Actually, let me re-read the spec one more time: "Reverse-into-self prevention: a key that requests the exact opposite of the current direction is ignored."
+
+I think the intent is to prevent the snake from reversing into itself. If the snake is moving right and the player presses left, the snake would immediately reverse and run into its own body. To prevent this, the left press is ignored.
+
+But if the player presses up and then left, the snake would turn up (90 degrees) and then left (another 90 degrees), which is a valid move. The snake wouldn't reverse into itself.
+
+So the check should be against `pendingDir` if set, otherwise `dir`. This allows the player to make multiple direction changes in a single tick, as long as each change is not a 180-degree turn from the previous pending direction.
+
+Hmm, but the spec says "current direction", not "pending direction". Let me think about this more...
+
+Actually, I think the simplest and most literal interpretation is: the check is against `dir`. This is what the spec says, and it's a common implementation in Snake games.
+
+Let me go with that:
+
+```typescript
+setDirection(newDir: Direction): void {
+  if (!this.alive || this.paused) return;
+  if (this.dir.x + newDir.x === 0 && this.dir.y + newDir.y === 0) return;
+  this.pendingDir = newDir;
+}
+```
+
+OK, I think I've overthought this. Let me finalize the code with the simple interpretation.
+
+Actually, I just realized there might be an issue with my tick logic. Let me trace through:
+
+1. dir = right, pendingDir = null
+2. Player presses up: pendingDir = up
+3. Player presses left: pendingDir = left (wait, is this allowed?)
+
+With my current check (against `dir`), left is opposite to right, so it's ignored. pendingDir stays as up.
+
+4. Tick: dir = up, pendingDir = null, snake moves up
+
+This seems correct. The snake turns up, not left.
+
+But what if the player presses up, waits for a tick, and then presses left?
+
+1. dir = right, pendingDir = null
+2. Player presses up: pendingDir = up
+3. Tick: dir = up, pendingDir = null, snake moves up
+4. Player presses left: pendingDir = left (not opposite to up, so allowed)
+5. Tick: dir = left, pendingDir = null, snake moves left
+
+This also seems correct. The snake turns up, then left.
+
+OK, I think the simple interpretation is fine. Let me finalize the code.
+
+One more thing: I should make sure the game doesn't accept direction changes when paused or dead. My `setDirection` method checks:
+
+```typescript
+if (!this.alive || this.paused) return;
+```
+
+This is correct.
+
+OK, let me write the final code.
+
+Actually, I want to double-check the tail collision logic one more time. The spec says:
+
+"The snake may chase its own tail by exactly one cell — i.e. the tail cell that is *about* to vacate is not counted as a collision."
+
+My implementation:
+- If the snake is about to eat (new head is at food position), the tail doesn't vacate, so we check against the full body.
+- If the snake is not eating, the tail vacates, so we exclude it from the collision check.
+
+This seems correct. Let me trace through an example:
+
+Snake: [(5,5), (5,4), (5,3)] moving right
+Food at (10, 10) (far away)
+New head: (6, 5)
+Not eating, so bodyToCheck = [(5,5), (5,4)] (excluding tail (5,3))
+No collision, snake moves to [(6,5), (5,5), (5,4)]
+
+Now, what if the snake turns around and tries to move into the tail position?
+
+Snake: [(6,5), (5,5), (5,4)] moving left
+New head: (5, 5)
+Not eating, so bodyToCheck = [(6,5), (5,5)] (excluding tail (5,4))
+Collision! (5,5) is in bodyToCheck.
+
+Wait, that's not right. The new head (5,5) is the same as the second segment (5,5), which is a collision. But the tail is (5,4), which is excluded.
+
+Let me trace again:
+Snake: [(6,5), (5,5), (5,4)]
+- Head: (6,5)
+- Body: (5,5)
+- Tail: (5,4)
+
+Moving left, new head: (5,5)
+bodyToCheck = [(6,5), (5,5)] (excluding tail (5,4))
+(5,5) is in bodyToCheck, so collision!
+
+This is correct. The snake can't move left into its own body.
+
+But what if the snake is longer and the head is about to move into the tail position?
+
+Snake: [(10,10), (9,10), (8,10), (7,10), (6,10)] moving left
+New head: (9, 10)
+Not eating, so bodyToCheck = [(10,10), (9,10), (8,10), (7,10)] (excluding tail (6,10))
+(9,10) is in bodyToCheck, so collision!
+
+Wait, that's not the tail. Let me think of a scenario where the head moves into the tail position.
+
+Snake: [(10,10), (9,10), (8,10), (7,10), (6,10)] moving right
+New head: (11, 10)
+Not eating, so bodyToCheck = [(10,10), (9,10), (8,10), (7,10)] (excluding tail (6,10))
+No collision, snake moves to [(11,10), (10,10), (9,10), (8,10), (7,10)]
+
+Now snake: [(11,10), (10,10), (9,10), (8,10), (7,10)]
+Let's say the snake turns around somehow and the head is about to move into the tail position (7,10).
+
+Actually, let me think of a simpler scenario. The snake is in a straight line, and the head is about to move into the tail position. But that's impossible because the tail is behind the head.
+
+Let me think of a scenario where the snake forms a loop and the head is about to move into the tail position.
+
+Snake forms a square:
+[(5,5), (5,4), (5,3), (6,3), (7,3), (7,4), (7,5), (6,5)] moving left
+Head: (5,5), Tail: (6,5)
+New head: (4, 5)
+Not eating, so bodyToCheck = [(5,5), (5,4), (5,3), (6,3), (7,3), (7,4), (7,5)] (excluding tail (6,5))
+No collision, snake moves.
+
+Now snake: [(4,5), (5,5), (5,4), (5,3), (6,3), (7,3), (7,4), (7,5)]
+Head: (4,5), Tail: (7,5)
+Moving down, new head: (4, 6)
+Not eating, so bodyToCheck = [(4,5), (5,5), (5,4), (5,3), (6,3), (7,3), (7,4)] (excluding tail (7,5))
+No collision, snake moves.
+
+This continues until the snake forms a complete loop and the head is about to move into the tail position.
+
+Actually, let me think of a scenario where the head is adjacent to the tail and moving towards it.
+
+Snake: [(5,5), (4,5), (3,5), (3,6), (4,6), (5,6), (6,6)] moving right
+Head: (5,5), Tail: (6,6)
+New head: (6, 5)
+Not eating, so bodyToCheck = [(5,5), (4,5), (3,5), (3,6), (4,6), (5,6)] (excluding tail (6,6))
+No collision, snake moves to [(6,5), (5,5), (4,5), (3,5), (3,6), (4,6), (5,6)]
+
+Now snake: [(6,5), (5,5), (4,5), (3,5), (3,6), (4,6), (5,6)]
+Head: (6,5), Tail: (5,6)
+Moving down, new head: (6, 6)
+Not eating, so bodyToCheck = [(6,5), (5,5), (4,5), (3,5), (3,6), (4,6)] (excluding tail (5,6))
+No collision, snake moves to [(6,6), (6,5), (5,5), (4,5), (3,5), (3,6), (4,6)]
+
+Now snake: [(6,6), (6,5), (5,5), (4,5), (3,5), (3,6), (4,6)]
+Head: (6,6), Tail: (4,6)
+Moving left, new head: (5, 6)
+Not eating, so bodyToCheck = [(6,6), (6,5), (5,5), (4,5), (3,5), (3,6)] (excluding tail (4,6))
+No collision, snake moves.
+
+This seems correct. The snake can chase its tail because the tail is excluded from the collision check.
+
+But what if the snake is about to eat and the new head position is the tail?
+
+This can't happen because food can't spawn on the snake, and the tail is part of the snake.
+
+OK, I think my implementation is correct. Let me finalize the code.
+
+Hmm, one more edge case: what if the snake is length 2 and the head is about to move into the tail position?
+
+Snake: [(5,5), (4,5)] moving right
+New head: (6, 5)
+Not eating, so bodyToCheck = [(5,5)] (excluding tail (4,5))
+No collision, snake moves to [(6,5), (5,5)]
+
+Now snake: [(6,5), (5,5)]
+Moving left, new head: (5, 5)
+Not eating, so bodyToCheck = [(6,5)] (excluding tail (5,5))
+No collision, snake moves to [(5,5), (6,5)]
+
+Wait, that's wrong. The new head (5,5) is the same as the old head position, which is now the second segment. But bodyToCheck only includes the head (6,5), not the tail (5,5).
+
+Hmm, let me trace again:
+Snake: [(6,5), (5,5)]
+- Head: (6,5)
+- Tail: (5,5)
+
+Moving left, new head: (5, 5)
+bodyToCheck = [(6,5)] (excluding tail (5,5))
+(5,5) is not in bodyToCheck, so no collision!
+
+But wait, (5,5) is the current tail, which is excluded. So the snake can move into the tail position. This is the "chasing tail" scenario.
+
+After the move:
+Snake: [(5,5), (6,5)]
+- Head: (5,5)
+- Tail: (6,5)
+
+The snake has moved into the tail position, which is allowed because the tail vacated.
+
+This is correct behavior according to the spec: "The snake may chase its own tail by exactly one cell".
+
+OK, I'm confident my implementation is correct. Let me finalize the code.
+
+Actually, I just realized there's an issue with my previous trace. Let me redo it:
+
+Snake: [(6,5), (5,5)] moving left
+- Head: (6,5)
+- Tail: (5,5)
+
+Moving left, new head: (5, 5)
+bodyToCheck = [(6,5)] (excluding tail (5,5))
+(5,5) is not in bodyToCheck, so no collision.
+
+After the move:
+- Add new head (5,5) to front: [(5,5), (6,5), (5,5)]
+- Remove tail (5,5): [(5,5), (6,5)]
+
+Wait, that's not right. Let me trace the move logic:
+
+```typescript
+this.snake.unshift(newHead);  // Add new head
+if (willEat) {
+  // Don't remove tail
+} else {
+  this.snake.pop();  // Remove tail
+}
+```
+
+So:
+1. snake = [(6,5), (5,5)]
+2. newHead = (5,5)
+3. unshift: snake = [(5,5), (6,5), (5,5)]
+4. pop: snake = [(5,5), (6,5)]
+
+So the snake moves from [(6,5), (5,5)] to [(5,5), (6,5)]. The head is now at (5,5), and the tail is at (6,5). This is correct.
+
+OK, I'm confident the implementation is correct now. Let me finalize the code.
+
+One last thing: I should make sure the canvas is cleared before drawing. My `draw` method starts with:
+
+```typescript
+ctx.fillStyle = '#000';
+ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+```
+
+This clears the canvas with black, which is correct.
+
+OK, let me write the final code.
+
+Actually, I want to reconsider the direction check one more time. Let me re-read the spec:
+
+"Reverse-into-self prevention: a key that requests the exact opposite of the current direction is ignored."
+
+I think "current direction" means the direction the snake is currently moving, which is `dir`. The `pendingDir` is the direction that will be applied on the next tick, but it hasn't been applied yet.
+
+So the check should be against `dir`, not `pendingDir`. This is the simplest and most literal interpretation.
+
+But there's a subtle issue: if the player presses up and then left in the same tick, the left press is ignored because it's opposite to `dir` (right). But if the player presses up, waits for a tick, and then presses left, the left press is allowed because `dir` is now up.
+
+This means rapid key presses might not work as expected, but that's a common behavior in Snake games.
+
+Let me stick with the simple interpretation: check against `dir`.
+
+OK, final code:
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;
+const SPEEDUP_DELTA = 10;
+
+class Game {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private scoreEl: HTMLElement;
+  private highEl: HTMLElement;
+  
+  private snake!: Cell[];
+  private dir!: Direction;
+  private pendingDir: Direction | null = null;
+  private food!: Cell;
+  private score!: number;
+  private high!: number;
+  private tickMs!: number;
+  private alive!: boolean;
+  private started!: boolean;
+  private paused!: boolean;
+  private tickId: number | null = null;
+  
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+    
+    const storedHigh = localStorage.getItem('snake.high');
+    this.high = storedHigh ? parseInt(storedHigh, 10) || 0 : 0;
+    this.highEl.textContent = `High: ${this.high}`;
+    
+    this.restart();
+  }
+  
+  start(): void {
+    if (this.started) return;
+    this.started = true;
+    this.paused = false;
+    this.scheduleTick();
+    this.draw();
+  }
+  
+  togglePause(): void {
+    if (!this.started || !this.alive) return;
+    this.paused = !this.paused;
+    if (this.paused) {
+      this.cancelTick();
+    } else {
+      this.scheduleTick();
+    }
+    this.draw();
+  }
+  
+  restart(): void {
+    this.cancelTick();
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = true;
+    this.started = false;
+    this.paused = true;
+    this.spawnFood();
+    this.updateUI();
+    this.draw();
+  }
+  
+  hasStarted(): boolean {
+    return this.started;
+  }
+  
+  setDirection(newDir: Direction): void {
+    if (!this.alive || this.paused) return;
+    if (this.dir.x + newDir.x === 0 && this.dir.y + newDir.y === 0) return;
+    this.pendingDir = newDir;
+  }
+  
+  private spawnFood(): void {
+    const occupied = new Set<string>();
+    for (const cell of this.snake) {
+      occupied.add(`${cell.x},${cell.y}`);
+    }
+    
+    let x: number, y: number;
+    do {
+      x = Math.floor(Math.random() * GRID);
+      y = Math.floor(Math.random() * GRID);
+    } while (occupied.has(`${x},${y}`));
+    
+    this.food = { x, y };
+  }
+  
+  private scheduleTick(): void {
+    this.cancelTick();
+    this.tickId = window.setTimeout(() => this.tick(), this.tickMs);
+  }
+  
+  private cancelTick(): void {
+    if (this.tickId !== null) {
+      clearTimeout(this.tickId);
+      this.tickId = null;
+    }
+  }
+  
+  private tick(): void {
+    if (!this.alive || this.paused) return;
+    
+    if (this.pendingDir) {
+      this.dir = this.pendingDir;
+      this.pendingDir = null;
+    }
+    
+    const head = this.snake[0];
+    const newHead: Cell = {
+      x: head.x + this.dir.x,
+      y: head.y + this.dir.y
+    };
+    
+    if (newHead.x < 0 || newHead.x >= GRID || newHead.y < 0 || newHead.y >= GRID) {
+      this.gameOver();
+      return;
+    }
+    
+    const willEat = newHead.x === this.food.x && newHead.y === this.food.y;
+    const bodyToCheck = willEat ? this.snake : this.snake.slice(0, -1);
+    
+    for (const seg of bodyToCheck) {
+      if (seg.x === newHead.x && seg.y === newHead.y) {
+        this.gameOver();
+        return;
+      }
+    }
+    
+    this.snake.unshift(newHead);
+    
+    if (willEat) {
+      this.score++;
+      if (this.score > this.high) {
+        this.high = this.score;
+        localStorage.setItem('snake.high', String(this.high));
+      }
+      this.updateUI();
+      if (this.score % SPEEDUP_EVERY === 0) {
+        this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+      }
+      this.spawnFood();
+    } else {
+      this.snake.pop();
+    }
+    
+    this.draw();
+    this.scheduleTick();
+  }
+  
+  private gameOver(): void {
+    this.alive = false;
+    this.cancelTick();
+    this.draw();
+  }
+  
+  private updateUI(): void {
+    this.scoreEl.textContent = `Score: ${this.score}`;
+    this.highEl.textContent = `High: ${this.high}`;
+  }
+  
+  private draw(): void {
+    const ctx = this.ctx;
+    
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+    
+    for (let i = 0; i < this.snake.length; i++) {
+      const cell = this.snake[i];
+      ctx.fillStyle = i === 0 ? '#7ed957' : '#3aa635';
+      ctx.fillRect(cell.x * CELL, cell.y * CELL, CELL, CELL);
+    }
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    
+    if (!this.alive) {
+      ctx.fillText('Game Over — press R to restart', centerX, centerY);
+    } else if (!this.started) {
+      ctx.fillText('Press Space to start', centerX, centerY);
+    } else if (this.paused) {
+      ctx.fillText('Paused', centerX, centerY);
+    }
+  }
+}
+
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const scoreEl = document.getElementById('score') as HTMLElement;
+const highEl = document.getElementById('high') as HTMLElement;
+
+const game = new Game(canvas, scoreEl, highEl);
+
+window.addEventListener('keydown', (e) => {
+  switch (e.key) {
+    case 'ArrowUp':
+    case 'w':
+    case 'W':
+      e.preventDefault();
+      game.setDirection({ x: 0, y: -1 });
+      break;
+    case 'ArrowDown':
+    case 's':
+    case 'S':
+      e.preventDefault();
+      game.setDirection({ x: 0, y: 1 });
+      break;
+    case 'ArrowLeft':
+    case 'a':
+    case 'A':
+      e.preventDefault();
+      game.setDirection({ x: -1, y: 0 });
+      break;
+    case 'ArrowRight':
+    case 'd':
+    case 'D':
+      e.preventDefault();
+      game.setDirection({ x: 1, y: 0 });
+      break;
+    case ' ':
+      e.preventDefault();
+      if (!game.hasStarted()) {
+        game.start();
+      } else {
+        game.togglePause();
+      }
+      break;
+    case 'r':
+    case 'R':
+      e.preventDefault();
+      game.restart();
+      break;
+  }
+});
+```
+
+And the HTML:
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+    }
+    #score, #high {
+      margin: 5px 0;
+    }
+    #game {
+      border: 2px solid #333;
+    }
+    .help {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #888;

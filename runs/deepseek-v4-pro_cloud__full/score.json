@@ -1,0 +1,21 @@
+{
+  "runDir": "runs/deepseek-v4-pro_cloud__full",
+  "total": 3,
+  "passed": 2,
+  "score": 0.6666666666666666,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": false,
+      "detail": "runs/deepseek-v4-pro_cloud__full/snake.ts(44,24): error TS18047: 'canvas' is possibly 'null'.\nruns/deepseek-v4-pro_cloud__full/snake.ts(44,38): error TS18047: 'canvas' is possibly 'null'.\nruns/deepseek-v4-pro_cloud__full/snake.ts(61,35): error TS18047: 'canvas' is possibly 'null'.\nruns/deepseek-v4-pro_cloud__full/snake.ts(61,53): error TS18047: 'canvas' is possibly 'null'.\nruns/deepseek-v4-pro_cloud__full/snake.ts(101,9): error TS18047: 'scoreElement' is possibly 'null'."
+    }
+  ]
+}

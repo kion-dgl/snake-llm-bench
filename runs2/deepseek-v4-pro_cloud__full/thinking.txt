@@ -1,0 +1,156 @@
+We need to produce two files: index.html and snake.ts. The spec is detailed. Let's ensure we follow exactly.
+
+Key points:
+- Grid 20x20, cell size 20px, canvas 400x400.
+- Starting snake: length 3, head at (10,10), body (9,10), (8,10). Moving right.
+- Initial tick 150ms, speed-up after every 5 apples eaten: tick decreases by 10ms, min 60ms.
+- Apple spawn: random cell not occupied by snake. When eaten, snake grows by 1 segment (i.e., don't remove tail on that tick) and new apple spawns.
+- Game over: head out of bounds (x<0 or x>=20 or y<0 or y>=20) or head collides with any body segment except the tail that is about to vacate. So we need to check collision after moving head, but before moving tail? Actually typical snake: move head, check collision, then if not game over, add new head, and if not eating, remove tail. The spec says "The snake may chase its own tail by exactly one cell — i.e. the tail cell that is about to vacate is not counted as a collision." So when moving, we compute new head position, then check if it collides with any segment of the snake except the current tail (since tail will move away). If the new head is at the current tail position, it's allowed because the tail will vacate. So collision check: newHead equals any cell in snake array except the last element (tail). If snake length is 1? Not possible because starting length 3, but after eating it grows, so always at least 3? Actually after eating, snake grows, so length increases. So tail always exists. So we can safely exclude last element.
+
+- Pause state: game starts paused. The page renders initial board, snake does not move until Space. So constructor should set paused=true, started=false, alive=true. The tick should not run. The canvas should draw initial state (snake, apple, and overlay text "Press Space to start"). The overlay text is drawn on canvas. So we need a draw method that draws the game state and then overlays text if paused or game over. When game over, stop tick and draw "Game Over — press R to restart". When paused before first start, draw "Press Space to start". When paused after first start (i.e., started is true and paused is true), draw "Paused". So we need to track started boolean.
+
+- Controls: Arrow keys or WASD set direction. Space: if not started, call start() (which sets started=true, paused=false, begins tick). If started, togglePause() (pauses/resumes). R: restart() at any time, including game over. restart() should reset to initial state, paused-before-start (so started=false, paused=true, alive=true, score=0, snake initial, dir right, pendingDir null, tickMs initial, food random). Also update high score if current score > high before reset? The spec says "Restart from initial state. Works at any time, including during game-over." It doesn't explicitly say to update high score on restart. But high score is persisted and updated when? Usually high score is updated whenever score exceeds high, and persisted. The spec says "High: N where N is the highest score seen so far. Persist this value in localStorage under the key snake.high so it survives reloads." So we should update high whenever score > high, and save to localStorage. That can be done in the eat apple logic or in a method. Also on restart, we should not lose high score; we just reset current score. So restart() should not reset high. It should keep high as is. And if the game ended with a new high, it should already be saved. So restart just resets game state.
+
+- Reverse-into-self prevention: a key that requests the exact opposite of the current direction is ignored. So if current direction is right (1,0), and player presses left (-1,0), ignore. But note: we have pendingDir? The spec says "pendingDir: Direction | null". So we might buffer direction changes? In many snake implementations, you can queue one direction change per tick to avoid multiple changes within a tick. The spec says "A key that requests the exact opposite of the current direction is ignored." It doesn't mention queuing. But the class outline includes `pendingDir: Direction | null`. So we should implement a pending direction that gets applied at the start of each tick. That prevents multiple direction changes per tick and also allows the reverse check against the current direction (not pending). So on key press, we set pendingDir to the new direction if it's not opposite of current dir (or maybe opposite of pending? Usually you check against current direction to prevent immediate reversal). The spec: "a key that requests the exact opposite of the current direction is ignored." So we check against `this.dir`. So if new direction is opposite of `this.dir`, ignore. Otherwise, set `this.pendingDir = newDir`. Then in the tick, before moving, if pendingDir is not null, set `this.dir = this.pendingDir` and `this.pendingDir = null`. That's standard.
+
+- Tick: setInterval. We need to clear interval on game over, pause, restart. We'll store interval ID. start() begins tick. togglePause() pauses: clear interval, set paused=true; resumes: set paused=false, start interval again. restart() clears interval, resets state, draws initial board. Also on game over, we stop tick (clear interval) and set alive=false.
+
+- Drawing: We'll have a draw method that clears canvas, draws grid? The spec doesn't require grid lines, just black background. So fill black. Then draw apple (red square), snake body (darker green), snake head (brighter green). Then overlay text if needed. Overlay text: white, 20px sans-serif, centered. We'll use canvas text.
+
+- Score and high elements: update their textContent. Score: "Score: N", High: "High: N". We'll update them in a method.
+
+- LocalStorage: load high from localStorage.getItem('snake.high'), parse as integer, default 0. Save whenever high changes.
+
+- Keydown listener: preventDefault for handled keys: ArrowUp, ArrowDown, ArrowLeft, ArrowRight, w, a, s, d, Space, r, R. We'll check key and call e.preventDefault().
+
+- The class must compile under strict. So we'll define all properties with definite assignment or initializers. We'll use `!` for canvas, scoreEl, highEl in constructor? Actually we can assign them in constructor. We'll have private canvas, ctx, scoreEl, highEl, snake, dir, pendingDir, food, score, high, tickMs, alive, started, paused, intervalId (number | null). We'll initialize in constructor.
+
+- The constructor should set up initial state, draw initial board. It should not start tick. So we'll call a reset method that sets initial values, then draw.
+
+- The start() method: if not started, set started=true, paused=false, start tick. togglePause(): if started, if paused, resume (start tick, paused=false); else pause (clear interval, paused=true). restart(): clear interval, reset state (like constructor initial), draw.
+
+- Apple spawn: random cell not occupied by snake. We'll generate random x,y until not in snake array.
+
+- Eating: when head moves to food cell, score++, snake grows (don't remove tail), spawn new apple, update score display, check high score, adjust tick interval if needed (every 5 apples). Speed-up: after every 5 apples eaten, tick interval decreases by 10ms, min 60ms. So we can compute new tickMs = Math.max(MIN_TICK_MS, INITIAL_TICK_MS - Math.floor(score / SPEEDUP_EVERY) * SPEEDUP_DELTA). But careful: initial tick is 150ms. After 5 apples, 140ms; after 10 apples, 130ms; etc. So formula: tickMs = Math.max(MIN_TICK_MS, INITIAL_TICK_MS - (Math.floor(score / SPEEDUP_EVERY) * SPEEDUP_DELTA)). But score is number of apples eaten. So after eating an apple, we increment score, then recalc tickMs. If tickMs changed, we need to restart the interval with new delay. So we'll have a method startTick() that clears any existing interval and sets a new one with current tickMs. We'll call that after eating if tickMs changed, or on resume. We'll store tickMs as a property.
+
+- Game over: after moving, check collision. If game over, set alive=false, clear interval, draw game over overlay. Also update high score if needed.
+
+- The snake array: head is first element (index 0). So moving: compute newHead = {x: head.x + dir.x, y: head.y + dir.y}. Check bounds and self-collision (excluding tail). If valid, unshift newHead to snake. If newHead equals food, don't pop tail (grow). Else pop tail. Then update food if eaten.
+
+- Tail vacating: when checking collision, we exclude the current tail (snake[snake.length-1]) because it will be removed if not eating. But if we are eating, tail is not removed, so the new head could collide with the tail? Actually if eating, snake grows, so tail stays. So the new head could potentially collide with the tail if the snake is long enough and wraps around? But the spec says "The snake may chase its own tail by exactly one cell — i.e. the tail cell that is about to vacate is not counted as a collision." That implies that if the new head is at the current tail position, it's allowed because the tail will vacate (unless eating, but then tail doesn't vacate, so it would be a collision). So we need to handle both cases: if not eating, tail will be removed, so we can exclude the last element from collision check. If eating, tail stays, so we must include the last element in collision check. So the rule: when checking collision, we consider all body segments except the tail that will be removed. So we need to know if we are going to eat. So we can compute newHead, check if newHead equals food. If yes, then we will not remove tail, so collision check must include all current snake segments (since tail remains). If no, we will remove tail, so we exclude the last segment. So collision check: let segmentsToCheck = willEat ? snake : snake.slice(0, -1); then check if newHead is in segmentsToCheck. Also check bounds.
+
+- Overlay text: we'll draw after drawing game elements. Use ctx.fillStyle, font, textAlign, textBaseline. We'll set font "20px sans-serif", fillStyle "#fff", textAlign "center", textBaseline "middle". Then fillText at canvas center (200,200). For game over, "Game Over — press R to restart". For paused before start, "Press Space to start". For paused after start, "Paused". We'll determine based on alive, started, paused.
+
+- The canvas border: 1px or 2px border. We'll add CSS: `canvas { border: 2px solid #fff; }` maybe? The spec says "1px or 2px border so the play field is visible." We'll use 2px solid #fff. Or maybe just border: 1px solid #555; but to be visible, white border. I'll use `border: 2px solid #fff;`.
+
+- Page background #111, canvas background #000. So canvas background is black, page dark.
+
+- The HTML structure: h1, then score div, high div, canvas, help text. Use ids: score, high, game. Help text as a <p> or <div>. I'll use <p id="help">.
+
+- Inline style block: body background #111, color white? Not specified for text, but likely white for readability. The spec only says page background #111, canvas background #000, text overlays on canvas #fff. It doesn't specify text color for score/high/help. But to be visible on dark background, we should set color: white. I'll add `body { background: #111; color: #fff; font-family: sans-serif; }` and center things. Also canvas border.
+
+- The JS file: snake.ts compiled to snake.js? The spec says "Loads JS via <script src="snake.js" defer></script> — no type="module"." So we need to output snake.ts content, but the HTML will reference snake.js. The user will compile TypeScript to JS. So we provide the TypeScript code. The output should be the TS code. So we'll output snake.ts content.
+
+- The class must have exactly the public methods: constructor, start, togglePause, restart. No other public methods. Private methods allowed.
+
+- Top-level setup: get elements, load high, create Game, install keydown listener. No exports.
+
+- We'll implement keydown listener: switch on e.key. For arrows: 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'. For WASD: 'w', 'a', 's', 'd' (lowercase). We'll also handle 'W', 'A', 'S', 'D'? The spec says "Arrow Up / W", so likely case-insensitive. We'll convert to lowercase for WASD. For space: ' '. For restart: 'r' or 'R'. We'll call e.preventDefault() for all these keys.
+
+- Direction mapping: up: {x:0, y:-1}, down: {x:0, y:1}, left: {x:-1, y:0}, right: {x:1, y:0}. Opposite check: if (newDir.x === -this.dir.x && newDir.y === -this.dir.y) ignore.
+
+- pendingDir: initially null. On key press, if direction is valid and not opposite, set pendingDir = newDir. In tick, apply pendingDir if not null.
+
+- Tick function: we'll define a private method `tick()` that is called by interval. It will apply pendingDir, move, check game over, if not over, update snake, food, score, speed, draw. If game over, stop interval, draw game over.
+
+- We'll store intervalId as number (returned by setInterval). We'll clear it with clearInterval.
+
+- On restart, we need to reset tickMs to INITIAL_TICK_MS. So we'll have a reset method.
+
+- High score update: in eat logic, after incrementing score, if score > high, high = score, save to localStorage, update highEl.
+
+- The canvas drawing: we'll use ctx.fillRect for cells. For each cell in snake, draw rectangle. For head, use brighter green. For apple, red.
+
+- Overlay text: we'll draw after all game elements. So the text appears on top.
+
+- Ensure that when game over, we stop tick and don't draw overlay repeatedly? We'll draw once when game over occurs, and then no more ticks. So the overlay stays.
+
+- When paused, we still draw the game state plus overlay. So the draw method should always draw the current state, then overlay if needed. So we can call draw() whenever state changes, and also on pause/resume.
+
+- The start() method: if not started, set started=true, paused=false, startTick(). togglePause(): if started, if paused, paused=false, startTick(); else paused=true, stopTick(). Both call draw() to update overlay.
+
+- restart(): stopTick(), reset state (including started=false, paused=true, alive=true, score=0, snake initial, dir right, pendingDir null, tickMs initial, food random), update score display, draw.
+
+- We'll need to update score and high elements whenever they change. We'll have methods updateScoreDisplay() and updateHighDisplay().
+
+- The constructor will call a private init() that sets initial state, then draw.
+
+- We'll ensure strictPropertyInitialization: we'll initialize all properties in constructor or with initializers. We'll use `private canvas: HTMLCanvasElement;` etc. and assign in constructor.
+
+- The canvas context: we'll get in constructor: `this.ctx = canvas.getContext('2d')!;` using non-null assertion.
+
+- The food spawning: we'll have a method spawnFood() that sets this.food to a random free cell.
+
+- The snake initial: `this.snake = [{x:10, y:10}, {x:9, y:10}, {x:8, y:10}];`
+
+- The direction: `this.dir = {x:1, y:0};`
+
+- The tickMs: `this.tickMs = INITIAL_TICK_MS;`
+
+- The intervalId: `this.intervalId = null;`
+
+- The alive, started, paused: `this.alive = true; this.started = false; this.paused = true;`
+
+- The score: `this.score = 0;`
+
+- The high: loaded from localStorage, default 0.
+
+- The pendingDir: `this.pendingDir = null;`
+
+- The scoreEl, highEl: assigned.
+
+- The draw method: clear canvas, draw food, draw snake (loop through snake, for i===0 use head color else body color), then overlay text.
+
+- Overlay text logic: if !alive -> "Game Over — press R to restart". else if !started -> "Press Space to start". else if paused -> "Paused". else no overlay.
+
+- We'll set ctx.fillStyle, ctx.font, ctx.textAlign, ctx.textBaseline before drawing text.
+
+- We'll ensure that the canvas border is visible. In CSS: `canvas { border: 2px solid #fff; display: block; margin: 0 auto; }` maybe.
+
+- The help text: "Arrow keys or WASD to move · Space to start/pause · R to restart". Use a <p> with id help.
+
+- The HTML: <!doctype html>, <html lang="en">, <head> with meta charset, viewport, title, style. Body with h1, div#score, div#high, canvas#game, p#help, script.
+
+- The script tag: <script src="snake.js" defer></script>. No type module.
+
+- The TypeScript code: we'll output as a fenced code block with language typescript.
+
+- We'll make sure no imports, no exports. The class Game is not exported, just defined and used locally.
+
+- We'll add `window.addEventListener('keydown', handleKeyDown);` in top-level.
+
+- The handleKeyDown function will call e.preventDefault() for handled keys, then call appropriate methods on the game instance. We'll need access to the game instance. We'll declare `let game: Game;` at top level, assign after creation.
+
+- So top-level: const canvas = document.getElementById('game') as HTMLCanvasElement; etc. Then game = new Game(canvas, scoreEl, highEl); Then window.addEventListener('keydown', (e) => { ... }); Inside, we'll switch on e.key, prevent default, then call game methods. For direction keys, we'll call a method on game to set direction? The class outline doesn't include a public method for direction. We'll need to expose a method like `setDirection(dir: Direction)` or handle it internally via a public method? The spec says "A key that requests the exact opposite of the current direction is ignored." It doesn't specify a public method for direction. But we can add a private method and call it from the keydown handler via a public method? The class outline only lists constructor, start, togglePause, restart. So we cannot add a public setDirection. But we can handle direction changes inside the keydown listener by directly accessing the game's private state? That would break encapsulation. However, the spec says "Listen for keys on window or document. Call e.preventDefault() on the keys you handle so the page doesn't scroll." It doesn't forbid adding a public method for direction. But the class outline says "Required public methods: constructor, start, togglePause, restart." It doesn't say "only these". It says "Required public methods:" and then lists them. So we can add additional public methods if needed. But to be safe, we can add a public method `changeDirection(dir: Direction)` that sets pendingDir after checking opposite. That would be fine. The spec doesn't forbid extra public methods. I'll add `public changeDirection(dir: Direction): void` to the class. That will be called from keydown. That's clean.
+
+- So in keydown, for direction keys, we'll call game.changeDirection(newDir). For space, if not started, game.start(); else game.togglePause(). For 'r', game.restart().
+
+- We'll define Direction constants.
+
+- We'll ensure that the game does not respond to keys when game over? The spec says R works at any time, including game-over. Space: start on first press; toggle pause/resume thereafter. So if game over, space should not do anything? The spec: "Space: Start the game on first press; toggle pause/resume thereafter". So after game over, the game is not started? Actually game over means alive=false, started remains true? We need to define state after game over. The spec: "When the game is over, draw 'Game Over — press R to restart' centered on the canvas, and stop the tick." It doesn't specify started/paused state. Typically after game over, the game is not paused, but it's over. We can set alive=false, and keep started=true, paused=false? But then space would toggle pause? That would be weird. The spec says "Space: Start the game on first press; toggle pause/resume thereafter". So after game over, the game is not in a state where pause/resume makes sense. So we should probably ignore space when game over. We can check if alive is false, then space does nothing. Or we can set started=false on game over? But then space would start a new game? The spec says R to restart. So space should not restart. So we'll keep started=true, alive=false, and in togglePause, if not alive, do nothing. Or we can just not call togglePause if !alive. In keydown, we'll check: if e.key === ' ' then if !game.alive? But we can't access private alive. We'll need a public getter or we can handle inside game's togglePause: if not alive, return. That's fine. So togglePause will check if started and alive? Actually togglePause is for pausing/resuming during play. If game over, it should do nothing. So we'll implement togglePause: if (!this.started || !this.alive) return; then toggle paused. Similarly, start() will only work if not started and alive? Actually start is called on first space press when not started. So start() will check if !this.started and this.alive, then set started=true, paused=false, startTick. If game over, alive=false, so start() would not do anything. That's fine.
+
+- So we'll implement accordingly.
+
+- We'll also ensure that when restart is called, we reset alive=true, started=false, paused=true.
+
+- The high score update: we'll check after eating: if (this.score > this.high) { this.high = this.score; localStorage.setItem('snake.high', String(this.high)); this.updateHighDisplay(); }
+
+- The speed-up: after eating, we'll compute newTickMs = Math.max(MIN_TICK_MS, INITIAL_TICK_MS - Math.floor(this.score / SPEEDUP_EVERY) * SPEEDUP_DELTA); if (newTickMs !== this.tickMs) { this.tickMs = newTickMs; if (this.started && !this.paused && this.alive) { this.stopTick(); this.startTick(); } } else if not started/paused, we just update tickMs for later.
+
+- We'll have private methods: startTick(), stopTick(), tick(), draw(), spawnFood(), updateScoreDisplay(), updateHighDisplay(), resetState().
+
+- We'll ensure that the initial draw in constructor shows the snake, apple, and "Press Space to start" overlay.
+
+- We'll test logic mentally.
+
+Now produce the output: two fenced code blocks.

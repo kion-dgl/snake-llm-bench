@@ -1,0 +1,11 @@
+{
+  "model": "qwen3-coder:30b",
+  "role": "fixup",
+  "baseRun": "runs/qwen3-coder_30b__full",
+  "attempt": 4,
+  "durationMs": 12697,
+  "promptEvalCount": 249,
+  "evalCount": 246,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:14:34.107Z"
+}

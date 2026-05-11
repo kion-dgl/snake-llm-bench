@@ -1,0 +1,157 @@
+We need to produce two code blocks: index.html and snake.ts. Must follow spec. Let's craft index.html.
+
+Requirements: <!doctype html>, viewport meta, title Snake. Inline style block with page-level styles: page background #111, canvas background #000, etc. DOM elements: h1, score line div id="score", high line div id="high", canvas id="game" width 400 height 400, help text line. Also need to load snake.js via script defer. No type="module". Also need to ensure style: page background #111, canvas border 1px or 2px. Text overlay on canvas will be drawn by JS. So style for canvas: background #000, border 1px solid #fff maybe. But spec says canvas background #000. We'll set border 1px solid #fff. Also set body margin 0, font etc.
+
+Also need to include help text: "Arrow keys or WASD to move · Space to start/pause · R to restart". Use a div or p.
+
+Also need to ensure the order: h1, score line, high line, canvas, help text. So index.html:
+
+```
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Snake</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin:0; background:#111; color:#fff; font-family:sans-serif; text-align:center; }
+  #game { background:#000; border:1px solid #fff; display:block; margin:0 auto; }
+  #score, #high { margin:5px 0; }
+  #help { margin-top:10px; font-size:0.9em; }
+</style>
+</head>
+<body>
+<h1>Snake</h1>
+<div id="score">Score: 0</div>
+<div id="high">High: 0</div>
+<canvas id="game" width="400" height="400"></canvas>
+<div id="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+<script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+Now snake.ts. Must compile under strict. We'll implement Game class with required methods. Use private state: snake: Cell[]; dir: Direction; pendingDir: Direction | null; food: Cell; score: number; high: number; tickMs: number; alive: boolean; started: boolean; paused: boolean; timerId?: number; We'll use window.setInterval for tick. But we need to stop tick when game over. We'll use setTimeout loop? Simpler: use setInterval and clearInterval on pause or game over. But we need to adjust tick interval when speed up. So we can use setTimeout each tick: schedule next tick after tickMs. That allows dynamic interval. We'll implement tick() method that moves snake, checks collision, draws, etc. We'll schedule next tick via setTimeout if alive and not paused.
+
+Game constructor: takes canvas, scoreEl, highEl. Initialize state: snake initial positions: head at (10,10), body at (9,10),(8,10). dir = {x:1,y:0}. pendingDir null. food random not on snake. score 0. high from localStorage? Actually high is passed? The constructor receives highEl but not high value. We'll load high from localStorage in top-level code, not inside Game. But spec: top-level setup loads high from localStorage and passes to Game? It says: new Game(canvas, scoreEl, highEl). So Game will read high from localStorage? It can read from localStorage inside constructor. But spec says top-level loads high from localStorage.getItem('snake.high'). So we should do that in top-level code and maybe set highEl text. But Game also needs to update highEl when score > high. So Game should have high property and update highEl. So top-level can just pass highEl and Game will load high from localStorage. That is fine.
+
+Game methods: start(): begins tick if not started. Called from Space when paused before first start. So start() sets started true, paused false, schedule tick.
+
+togglePause(): if started, toggle paused. If paused, resume tick; if resuming, schedule tick.
+
+restart(): reset to initial state, paused-before-start. So set started false, paused true, clear timer, reset snake, dir, pendingDir, food, score, tickMs, alive true? Actually alive true but not moving. But we should set alive true. But if game over, restart should reset alive true. So set alive true. Also update score display, high display unchanged. Then draw initial board.
+
+Need to handle keydown: arrow keys, WASD, Space, R. On keydown, e.preventDefault() for handled keys. For direction keys, set pendingDir if not opposite. For Space: if not started, call start(); else togglePause(); For R: call restart().
+
+Game logic: tick() moves snake: compute new head = {x: head.x + dir.x, y: head.y + dir.y}. Check collision: if out of bounds (x<0||x>=GRID||y<0||y>=GRID) or if new head collides with body except tail cell that will vacate. Since snake moves forward, we can compute new body: newSnake = [newHead, ...snake.slice(0, -1)] if not eating apple. If eating apple, we don't remove tail: newSnake = [newHead, ...snake]. So collision check: if newHead collides with any segment of snake except possibly the tail that will be removed. For collision detection, we can check if newHead matches any segment of snake except last element if not eating apple. But if eating apple, tail stays, so we check all segments. So we need to know if eating apple: newHead equals food. So we can compute willGrow = newHead.x===food.x && newHead.y===food.y. Then collision check: for i=0; i<snake.length; i++: if i===snake.length-1 && !willGrow skip? Actually if willGrow, tail stays, so we check all segments. If !willGrow, tail will vacate, so skip last segment. So we can loop over snake indices 0 to snake.length-1, but if !willGrow and i===snake.length-1 skip. If any match newHead, collision.
+
+If collision or out of bounds, set alive false, paused true, clear timer, draw game over overlay. Also update high if needed. Stop tick.
+
+If no collision: update snake: if willGrow: snake = [newHead, ...snake]; score++; update score display; if score>high: high=score; update highEl; update high in localStorage. spawn new food. If !willGrow: snake = [newHead, ...snake.slice(0, -1)].
+
+After updating snake, check speed-up: if score % SPEEDUP_EVERY===0 and score>0: reduce tickMs by SPEEDUP_DELTA but not below MIN_TICK_MS.
+
+Then draw board: clear canvas, draw snake segments: body color for all except head. Draw apple. If paused: overlay text "Paused" or "Press Space to start" if not started. If game over: overlay text "Game Over — press R to restart". But spec: when paused before first start, draw "Press Space to start" centered. When paused after first start, draw "Paused". When game over, draw "Game Over — press R to restart" centered, and stop tick. So we need to handle drawing overlay in draw() method based on state.
+
+We need to implement drawing: fillRect for background, then draw apple as filled rect or circle? Use fillRect 20x20. Use fillStyle apple color. For snake: for each segment, fillStyle body or head. Use fillRect.
+
+Overlay text: use ctx.font = "20px sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(text, canvas.width/2, canvas.height/2).
+
+We need to handle paused state: paused boolean. started boolean indicates if game has started. alive indicates if snake alive. paused true when paused or game over? For game over, paused true and alive false. So overlay logic: if !started: "Press Space to start". else if !alive: "Game Over — press R to restart". else if paused: "Paused". else no overlay.
+
+We need to schedule next tick: after tick() completes, if alive && !paused, setTimeout(() => this.tick(), this.tickMs). But if paused, we don't schedule. So tick() should schedule next tick at end if alive && !paused.
+
+Also need to handle pendingDir: when direction key pressed, set pendingDir if not opposite. In tick(), before moving, if pendingDir not null, set dir = pendingDir; pendingDir = null.
+
+Opposite direction check: if dir.x + pendingDir.x === 0 && dir.y + pendingDir.y === 0, ignore.
+
+We need to implement random food spawn: pick random cell not in snake. Use while loop.
+
+Now top-level code: get elements, load high from localStorage, create Game, set up keydown listener. For highEl, we can set initial text to "High: " + high. But Game will update highEl when needed. So top-level can set highEl.textContent = "High: " + high. But Game will also update highEl. So we can just set highEl.textContent initially.
+
+Also need to set scoreEl.textContent = "Score: 0" initially.
+
+Now implement Game class.
+
+We need to ensure strict property initialization. We'll use definite assignment operator ! for properties that are assigned in constructor. We'll define private properties with !.
+
+Let's write code.
+
+Also need to export? No exports. So just class Game.
+
+Let's craft snake.ts.
+
+We'll use type definitions at top: type Cell, Direction. Constants.
+
+Implement Game class.
+
+We'll need to store canvas context: ctx: CanvasRenderingContext2D.
+
+Implement constructor(canvas, scoreEl, highEl). In constructor, set this.canvas = canvas; this.ctx = canvas.getContext('2d')!; this.scoreEl = scoreEl; this.highEl = highEl; this.started = false; this.paused = true; this.alive = true; this.tickMs = INITIAL_TICK_MS; this.score = 0; this.high = Number(localStorage.getItem('snake.high')) || 0; this.highEl.textContent = `High: ${this.high}`; this.scoreEl.textContent = `Score: ${this.score}`; this.snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}]; this.dir = {x:1,y:0}; this.pendingDir = null; this.food = this.spawnFood(); this.draw(); // initial board.
+
+Implement spawnFood(): while true pick random x,y 0-19; if not in snake return {x,y}.
+
+Implement start(): if this.started return; this.started = true; this.paused = false; this.alive = true; this.scheduleTick(); // schedule first tick.
+
+Implement togglePause(): if !this.started return; this.paused = !this.paused; if (!this.paused) this.scheduleTick(); else this.draw(); // draw overlay paused.
+
+Implement restart(): clear any pending timeout. this.started = false; this.paused = true; this.alive = true; this.tickMs = INITIAL_TICK_MS; this.score = 0; this.scoreEl.textContent = `Score: ${this.score}`; this.snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}]; this.dir = {x:1,y:0}; this.pendingDir = null; this.food = this.spawnFood(); this.draw(); // show initial board.
+
+Implement scheduleTick(): this.timerId = window.setTimeout(() => this.tick(), this.tickMs);
+
+Implement tick(): if !this.started || this.paused || !this.alive return; // safety.
+
+Set dir from pendingDir if any: if (this.pendingDir) { if (!this.isOpposite(this.pendingDir)) this.dir = this.pendingDir; this.pendingDir = null; }
+
+Compute newHead: {x: this.snake[0].x + this.dir.x, y: this.snake[0].y + this.dir.y};
+
+Check out of bounds: if newHead.x<0||newHead.x>=GRID||newHead.y<0||newHead.y>=GRID => this.gameOver(); return;
+
+Check collision: willGrow = newHead.x===this.food.x && newHead.y===this.food.y; for (let i=0;i<this.snake.length;i++){ if (i===this.snake.length-1 && !willGrow) continue; const seg=this.snake[i]; if (seg.x===newHead.x && seg.y===newHead.y){ this.gameOver(); return; } }
+
+If willGrow: this.snake.unshift(newHead); this.score++; this.scoreEl.textContent=`Score: ${this.score}`; if (this.score>this.high){ this.high=this.score; this.highEl.textContent=`High: ${this.high}`; localStorage.setItem('snake.high', String(this.high)); } this.food=this.spawnFood(); if (this.score%SPEEDUP_EVERY===0 && this.tickMs>MIN_TICK_MS){ this.tickMs=Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA); } else { this.snake.pop(); } // if not grow, remove tail
+
+this.draw();
+
+this.scheduleTick();
+
+Implement gameOver(): this.alive=false; this.paused=true; this.draw(); // overlay game over. No further ticks.
+
+Implement isOpposite(dir): return this.dir.x + dir.x===0 && this.dir.y + dir.y===0;
+
+Implement draw(): clear canvas: this.ctx.fillStyle='#000'; this.ctx.fillRect(0,0,400,400); // background
+
+Draw apple: this.ctx.fillStyle='#c0392b'; this.ctx.fillRect(this.food.x*CELL, this.food.y*CELL, CELL, CELL);
+
+Draw snake: for each segment: if index===0 head color else body color. Use colors: head '#7ed957', body '#3aa635'.
+
+After drawing, overlay text: if !this.started: text='Press Space to start'; else if !this.alive: text='Game Over — press R to restart'; else if this.paused: text='Paused'; else no overlay. If text defined: set font, fillStyle '#fff', textAlign center, baseline middle, fillText(text, 200,200).
+
+Implement keydown listener: window.addEventListener('keydown', (e)=>{ switch(e.key){ case 'ArrowUp': case 'w': case 'W': e.preventDefault(); this.setDirection({x:0,y:-1}); break; case 'ArrowDown': case 's': case 'S': e.preventDefault(); this.setDirection({x:0,y:1}); break; case 'ArrowLeft': case 'a': case 'A': e.preventDefault(); this.setDirection({x:-1,y:0}); break; case 'ArrowRight': case 'd': case 'D': e.preventDefault(); this.setDirection({x:1,y:0}); break; case ' ': e.preventDefault(); if (!this.started){ this.start(); } else { this.togglePause(); } break; case 'r': case 'R': e.preventDefault(); this.restart(); break; } });
+
+Implement setDirection(dir): if this.isOpposite(dir) return; this.pendingDir=dir;
+
+Now top-level code: after DOM loaded? Since script defer, DOM ready. So we can just run code.
+
+const canvas=document.getElementById('game') as HTMLCanvasElement; const scoreEl=document.getElementById('score') as HTMLElement; const highEl=document.getElementById('high') as HTMLElement; const game=new Game(canvas, scoreEl, highEl); // keydown listener inside Game? We can attach outside. But spec says top-level setup installs window keydown listener. So we need to add listener after creating game. So we need to expose game instance. So after new Game, we add listener.
+
+But Game class has methods start, togglePause, restart, setDirection. So we can use game.setDirection? But setDirection is private. We can expose a public method to set direction? Not specified. But we can still call game['setDirection']? But better to add public method setDirection? Not in spec. But we can handle direction changes inside keydown by calling game['setDirection']? But it's private. We can add a public method to set direction? The spec didn't forbid adding private helper methods but not rename or remove anything below. It didn't say we can't add public methods. But the required public methods are only constructor, start, togglePause, restart. So we should not add new public methods. So we need to handle direction changes inside keydown by directly setting game.pendingDir? But pendingDir is private. We can use a public method to set direction? Not allowed. But we can circumvent by adding a public method setDirection? The spec says "Required public methods: constructor, start, togglePause, restart". It doesn't say we cannot add other public methods, but it says "do not rename or remove anything below". It might be okay to add other public methods. But safer to keep only those. We can handle direction changes by calling game['setDirection'] if we make setDirection public. But we can also handle direction changes by calling game['pendingDir']? But that's private. But we can use a public method to set direction. Let's add a public method setDirection(dir: Direction): void; It's not required but allowed. But spec might consider that as adding new public method. But it's not forbidden. It says "Required public methods: constructor, start, togglePause, restart". It doesn't say "only these". So adding setDirection is fine. But we need to ensure no other changes to the class shape. So we can add setDirection. That will be used by keydown.
+
+Alternatively, we can handle direction changes by calling game['setDirection'] if we make it public. Let's add it.
+
+Also we need to expose a method to get started? Not needed.
+
+Now implement keydown listener: window.addEventListener('keydown', (e)=>{ ... });
+
+Now we need to ensure strict property initialization. We'll use definite assignment for properties that are assigned in constructor. For timerId, we can declare as private timerId?: number; no need definite.
+
+Now compile.
+
+Let's write code.
+
+Also we need to ensure that we use localStorage key 'snake.high'.
+
+Now produce final code blocks.
+
+Let's craft snake.ts.
+

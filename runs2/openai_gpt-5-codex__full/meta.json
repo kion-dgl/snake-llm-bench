@@ -1,0 +1,10 @@
+{
+  "model": "openai/gpt-5-codex",
+  "role": "full",
+  "durationMs": 299750,
+  "promptEvalCount": 1360,
+  "evalCount": 48612,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T20:37:52.829Z",
+  "promptSource": "prompts/snake-spec.md"
+}

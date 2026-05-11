@@ -1,0 +1,1467 @@
+The user wants me to create a Snake game with very specific requirements. Let me carefully go through all the specifications and create both files correctly.
+
+Key requirements:
+1. Grid: 20x20 cells, each cell 20px, canvas 400x400
+2. Starting snake: length 3, head at (10,10), body at (9,10) and (8,10), moving right
+3. Initial tick: 150ms, speeds up by 10ms every 5 apples, minimum 60ms
+4. Apple spawns on random unoccupied cell
+5. Game over: wall collision or self collision (except tail that's about to vacate)
+6. Starts paused, press Space to start
+7. No wrap-around, walls kill
+8. Controls: Arrow keys/WASD for direction, Space for pause/start, R for restart
+9. Reverse direction prevention
+10. Score and High score with localStorage persistence
+11. Specific colors and layout
+
+Let me create the files:
+
+**index.html:**
+- DOCTYPE html
+- viewport meta
+- title Snake
+- inline style with page background #111, canvas background #000
+- h1, score div, high div, canvas, help text
+- script src="snake.js" defer
+
+**snake.ts:**
+- Types Cell and Direction
+- Constants GRID, CELL, INITIAL_TICK_MS, MIN_TICK_MS, SPEEDUP_EVERY, SPEEDUP_DELTA
+- Game class with all required methods and properties
+- Keydown listener on window
+
+Let me write this carefully:
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Snake</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+    }
+    #score, #high {
+      margin: 5px 0;
+      font-size: 18px;
+    }
+    #game {
+      background: #000;
+      border: 2px solid #333;
+    }
+    #help {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <div id="score">Score: 0</div>
+  <div id="high">High: 0</div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <div id="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+  <script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+Now for snake.ts:
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;
+const SPEEDUP_DELTA = 10;
+
+class Game {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private scoreEl: HTMLElement;
+  private highEl: HTMLElement;
+  
+  private snake: Cell[];
+  private dir: Direction;
+  private pendingDir: Direction | null;
+  private food: Cell;
+  private score: number;
+  private high: number;
+  private tickMs: number;
+  private alive: boolean;
+  private started: boolean;
+  private paused: boolean;
+  private tickId: number | null;
+  
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+    
+    // Load high score from localStorage
+    const storedHigh = localStorage.getItem('snake.high');
+    this.high = storedHigh ? parseInt(storedHigh, 10) : 0;
+    this.highEl.textContent = `High: ${this.high}`;
+    
+    this.snake = [];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.food = { x: 0, y: 0 };
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = false;
+    this.started = false;
+    this.paused = true;
+    this.tickId = null;
+    
+    this.initSnake();
+    this.spawnFood();
+    this.alive = true;
+    this.draw();
+  }
+  
+  private initSnake(): void {
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+  }
+  
+  private spawnFood(): void {
+    const occupied = new Set<string>();
+    for (const cell of this.snake) {
+      occupied.add(`${cell.x},${cell.y}`);
+    }
+    
+    let x: number, y: number;
+    do {
+      x = Math.floor(Math.random() * GRID);
+      y = Math.floor(Math.random() * GRID);
+    } while (occupied.has(`${x},${y}`));
+    
+    this.food = { x, y };
+  }
+  
+  start(): void {
+    if (!this.started && this.paused && this.alive) {
+      this.started = true;
+      this.paused = false;
+      this.scheduleTick();
+    }
+  }
+  
+  togglePause(): void {
+    if (!this.started || !this.alive) return;
+    
+    this.paused = !this.paused;
+    if (this.paused) {
+      this.cancelTick();
+      this.draw();
+    } else {
+      this.scheduleTick();
+    }
+  }
+  
+  restart(): void {
+    this.cancelTick();
+    
+    this.initSnake();
+    this.spawnFood();
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = true;
+    this.started = false;
+    this.paused = true;
+    
+    this.scoreEl.textContent = `Score: ${this.score}`;
+    this.draw();
+  }
+  
+  private scheduleTick(): void {
+    this.cancelTick();
+    this.tickId = window.setTimeout(() => this.tick(), this.tickMs);
+  }
+  
+  private cancelTick(): void {
+    if (this.tickId !== null) {
+      window.clearTimeout(this.tickId);
+      this.tickId = null;
+    }
+  }
+  
+  private tick(): void {
+    if (this.paused || !this.alive) return;
+    
+    // Apply pending direction
+    if (this.pendingDir !== null) {
+      this.dir = this.pendingDir;
+      this.pendingDir = null;
+    }
+    
+    // Calculate new head position
+    const head = this.snake[0];
+    const newHead: Cell = {
+      x: head.x + this.dir.x,
+      y: head.y + this.dir.y
+    };
+    
+    // Check wall collision
+    if (newHead.x < 0 || newHead.x >= GRID || newHead.y < 0 || newHead.y >= GRID) {
+      this.gameOver();
+      return;
+    }
+    
+    // Check self collision (excluding tail that's about to vacate)
+    const tail = this.snake[this.snake.length - 1];
+    for (let i = 0; i < this.snake.length - 1; i++) {
+      if (this.snake[i].x === newHead.x && this.snake[i].y === newHead.y) {
+        this.gameOver();
+        return;
+      }
+    }
+    
+    // Move snake
+    this.snake.unshift(newHead);
+    
+    // Check food
+    if (newHead.x === this.food.x && newHead.y === this.food.y) {
+      this.score++;
+      this.scoreEl.textContent = `Score: ${this.score}`;
+      
+      if (this.score > this.high) {
+        this.high = this.score;
+        this.highEl.textContent = `High: ${this.high}`;
+        localStorage.setItem('snake.high', String(this.high));
+      }
+      
+      // Speed up every SPEEDUP_EVERY apples
+      if (this.score % SPEEDUP_EVERY === 0) {
+        this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+      }
+      
+      this.spawnFood();
+    } else {
+      this.snake.pop();
+    }
+    
+    this.draw();
+    this.scheduleTick();
+  }
+  
+  private gameOver(): void {
+    this.alive = false;
+    this.cancelTick();
+    this.draw();
+  }
+  
+  setDirection(newDir: Direction): void {
+    // Ignore if opposite direction
+    if (this.dir.x + newDir.x === 0 && this.dir.y + newDir.y === 0) {
+      return;
+    }
+    this.pendingDir = newDir;
+  }
+  
+  private draw(): void {
+    const ctx = this.ctx;
+    
+    // Clear canvas
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Draw food
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+    
+    // Draw snake
+    for (let i = 0; i < this.snake.length; i++) {
+      const cell = this.snake[i];
+      ctx.fillStyle = i === 0 ? '#7ed957' : '#3aa635';
+      ctx.fillRect(cell.x * CELL, cell.y * CELL, CELL, CELL);
+    }
+    
+    // Draw overlay text
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    if (!this.alive) {
+      ctx.fillText('Game Over — press R to restart', this.canvas.width / 2, this.canvas.height / 2);
+    } else if (!this.started) {
+      ctx.fillText('Press Space to start', this.canvas.width / 2, this.canvas.height / 2);
+    } else if (this.paused) {
+      ctx.fillText('Paused', this.canvas.width / 2, this.canvas.height / 2);
+    }
+  }
+}
+
+// Top-level setup
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const scoreEl = document.getElementById('score') as HTMLElement;
+const highEl = document.getElementById('high') as HTMLElement;
+
+const game = new Game(canvas, scoreEl, highEl);
+
+window.addEventListener('keydown', (e: KeyboardEvent) => {
+  switch (e.key) {
+    case 'ArrowUp':
+    case 'w':
+    case 'W':
+      e.preventDefault();
+      game.setDirection({ x: 0, y: -1 });
+      break;
+    case 'ArrowDown':
+    case 's':
+    case 'S':
+      e.preventDefault();
+      game.setDirection({ x: 0, y: 1 });
+      break;
+    case 'ArrowLeft':
+    case 'a':
+    case 'A':
+      e.preventDefault();
+      game.setDirection({ x: -1, y: 0 });
+      break;
+    case 'ArrowRight':
+    case 'd':
+    case 'D':
+      e.preventDefault();
+      game.setDirection({ x: 1, y: 0 });
+      break;
+    case ' ':
+      e.preventDefault();
+      if (!game['started']) {
+        game.start();
+      } else {
+        game.togglePause();
+      }
+      break;
+    case 'r':
+    case 'R':
+      e.preventDefault();
+      game.restart();
+      break;
+  }
+});
+```
+
+Wait, I'm accessing private property `game['started']` which is a bit hacky. Let me add a public method or property to check if the game has started.
+
+Actually, looking at the spec again, the `start()` method should only work when paused before first start. And `togglePause()` should work during play. So I need a way to check if the game has started.
+
+Let me add a public getter or just make `started` accessible. Actually, the spec says the class must have those specific public methods, but I can add more if needed. Let me add a public `isStarted()` method or just check the state differently.
+
+Actually, looking more carefully at the spec:
+- "start(): begins the tick (called from Space when paused before first start)"
+- "togglePause(): pauses or resumes during play"
+
+So the key handler should:
+- If not started, call start()
+- If started, call togglePause()
+
+But togglePause() should only work during play (after first start). Let me re-read...
+
+"togglePause(): pauses or resumes during play" - this suggests it's for during gameplay.
+
+So the logic should be:
+- First Space press: call start() to begin
+- Subsequent Space presses: call togglePause() to pause/resume
+
+I need to know if the game has started. Let me add a public method `isStarted()` or make `started` public readonly.
+
+Actually, I'll just add a public getter for `started`:
+
+```typescript
+get isStarted(): boolean {
+  return this.started;
+}
+```
+
+Or I can just make the property public. But the spec says "Private state must include at minimum" those properties, so they should be private.
+
+Let me add a getter method.
+
+Actually, looking at the spec more carefully, it says the class must have those specific public methods, but I can add more. Let me add a simple getter.
+
+Wait, I realize there's another issue. The spec says:
+"start(): begins the tick (called from Space when paused before first start)"
+
+So `start()` should check internally if it's the right state to start. Let me modify the logic:
+
+```typescript
+start(): void {
+  if (!this.started && this.paused && this.alive) {
+    this.started = true;
+    this.paused = false;
+    this.scheduleTick();
+  }
+}
+```
+
+And for the key handler, I can just call `start()` first, and if it doesn't do anything (because already started), then call `togglePause()`.
+
+Actually, let me think about this differently. The spec says:
+- "start(): begins the tick (called from Space when paused before first start)"
+- "togglePause(): pauses or resumes during play"
+
+So the intended usage is:
+- First Space: call `start()`
+- Subsequent Space: call `togglePause()`
+
+I need to know which state we're in. Let me add a public method to check:
+
+```typescript
+hasStarted(): boolean {
+  return this.started;
+}
+```
+
+Then in the key handler:
+```typescript
+if (!game.hasStarted()) {
+  game.start();
+} else {
+  game.togglePause();
+}
+```
+
+Let me update my code with this approach.
+
+Also, I need to double-check the self-collision logic. The spec says:
+"The snake may chase its own tail by exactly one cell — i.e. the tail cell that is about to vacate is not counted as a collision."
+
+So when checking collision, I should exclude the tail cell (the last segment) because it will vacate on the next move. But wait, if the snake eats food, it grows and the tail doesn't vacate. So I need to be careful here.
+
+Actually, let me re-read: "the tail cell that is *about* to vacate is not counted as a collision."
+
+This means when the snake moves, if the new head position would be where the tail currently is, that's not a collision because the tail will move away. But this only applies if the snake doesn't grow (doesn't eat food).
+
+In my current implementation, I check collision before moving, and I exclude the last segment (tail) from the collision check. This should be correct because:
+1. If the snake eats food, the tail doesn't move, but the head won't be at the tail position anyway (it would be at the food position)
+2. If the snake doesn't eat food, the tail vacates, so it's safe for the head to move there
+
+Wait, but there's a subtle issue. If the snake eats food, the tail doesn't vacate. So if the head moves to where the tail is AND there's food there... that's impossible because food can't spawn on the snake.
+
+Actually, let me think again. The collision check happens before the move. At that point:
+- The snake is at positions [head, ..., tail]
+- We calculate newHead
+- We check if newHead collides with any body segment except the tail (because tail will vacate)
+- If no collision, we move: add newHead to front, remove tail from back (unless food eaten)
+
+But wait, if food is eaten, we don't remove the tail. So the collision check should consider whether food will be eaten or not.
+
+Hmm, but actually, if the head moves to the tail position AND there's food there, that's impossible because food can't spawn on the snake. So if the head moves to the tail position, there's no food there, and the tail will vacate.
+
+So my current logic of excluding the tail from collision check should be correct.
+
+Let me trace through:
+1. Snake at positions [(10,10), (9,10), (8,10)], moving right
+2. newHead = (11, 10)
+3. Check collision with (10,10) and (9,10) - not including (8,10) which is tail
+4. No collision, move: snake becomes [(11,10), (10,10), (9,10)]
+
+Now let's say the snake is longer and wraps around:
+1. Snake at positions [(5,5), (4,5), (3,5), (3,6), (4,6), (5,6)], moving up
+2. newHead = (5, 4)
+3. Check collision with all except (5,6) which is tail
+4. No collision, move
+
+Now let's say the snake is about to eat its own tail:
+1. Snake at positions [(5,5), (4,5), (3,5), (3,6), (4,6), (5,6)], moving down
+2. newHead = (5, 6) - this is where the tail is
+3. Check collision with all except (5,6) which is tail
+4. No collision (because we excluded tail), move: snake becomes [(5,6), (5,5), (4,5), (3,5), (3,6), (4,6)]
+5. The snake has successfully chased its tail!
+
+This seems correct.
+
+But wait, there's another case. What if the snake is about to eat food at the tail position? That's impossible because food can't spawn on the snake. So this case doesn't exist.
+
+OK, I think my logic is correct. Let me finalize the code.
+
+One more thing: the spec says the game starts paused. So `started` should be `false` and `paused` should be `true` initially. And the first Space press should call `start()` which sets `started = true` and `paused = false`.
+
+Let me also make sure the drawing is correct:
+- When not started (paused before first start): "Press Space to start"
+- When paused after first start: "Paused"
+- When game over: "Game Over — press R to restart"
+
+And the game over state should stop the tick (no more clearing/redrawing).
+
+Let me also check the speed-up logic:
+- After every 5 apples eaten, tick interval decreases by 10ms
+- Minimum tick interval: 60ms
+
+So if score is 5, 10, 15, 20, etc., we speed up.
+
+In my code:
+```typescript
+if (this.score % SPEEDUP_EVERY === 0) {
+  this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+}
+```
+
+This should work. When score becomes 5, 10, 15, etc., we speed up.
+
+Actually wait, let me check the initial state. Score starts at 0. After eating the first apple, score becomes 1. After 5 apples, score becomes 5, and 5 % 5 === 0, so we speed up. That's correct.
+
+Hmm, but 0 % 5 === 0 too. But we only check this after incrementing score, so score will be at least 1 when we check. So no issue.
+
+Actually, let me trace:
+- Initial: score = 0
+- Eat apple 1: score = 1, 1 % 5 = 1, no speedup
+- Eat apple 2: score = 2, 2 % 5 = 2, no speedup
+- Eat apple 3: score = 3, 3 % 5 = 3, no speedup
+- Eat apple 4: score = 4, 4 % 5 = 4, no speedup
+- Eat apple 5: score = 5, 5 % 5 = 0, speedup!
+- Eat apple 6: score = 6, 6 % 5 = 1, no speedup
+- ...
+- Eat apple 10: score = 10, 10 % 5 = 0, speedup!
+
+This looks correct.
+
+Now let me also verify the tick interval:
+- Initial: 150ms
+- After 5 apples: 140ms
+- After 10 apples: 130ms
+- ...
+- After 45 apples: 60ms (minimum)
+- After 50 apples: still 60ms (can't go below minimum)
+
+Let me calculate: 150 - 60 = 90ms total reduction possible. 90 / 10 = 9 speedups. 9 * 5 = 45 apples to reach minimum.
+
+Actually, let me trace:
+- 0 apples: 150ms
+- 5 apples: 140ms
+- 10 apples: 130ms
+- 15 apples: 120ms
+- 20 apples: 110ms
+- 25 apples: 100ms
+- 30 apples: 90ms
+- 35 apples: 80ms
+- 40 apples: 70ms
+- 45 apples: 60ms
+- 50 apples: 60ms (capped)
+
+Yes, that's correct.
+
+Now let me finalize the code. I'll add a public method `hasStarted()` to check if the game has started.
+
+Actually, I realize I should also handle the case where the game is over and the player presses Space. According to the spec, Space should only start/pause, not restart. R is for restart. So when game is over, Space should do nothing.
+
+Let me update the key handler logic:
+```typescript
+case ' ':
+  e.preventDefault();
+  if (!game.hasStarted()) {
+    game.start();
+  } else if (game.isAlive()) {
+    game.togglePause();
+  }
+  break;
+```
+
+I need another method `isAlive()` to check if the game is still going.
+
+Actually, let me think about this more carefully. The spec says:
+- "Space: Start the game on first press; toggle pause/resume thereafter"
+
+So Space should:
+1. First press: start the game
+2. Subsequent presses: toggle pause/resume
+
+But what about when the game is over? The spec doesn't explicitly say, but logically, Space shouldn't do anything when the game is over. The player should press R to restart.
+
+So my logic should be:
+- If not started: start()
+- If started and alive: togglePause()
+- If started and not alive (game over): do nothing
+
+Let me add both `hasStarted()` and `isAlive()` methods.
+
+Actually, I can simplify this. The `togglePause()` method already checks `if (!this.started || !this.alive) return;`. So I can just call `togglePause()` and it will do nothing if the game is over.
+
+But wait, `togglePause()` checks `if (!this.started || !this.alive) return;`. If `started` is false, it returns. But after game over, `started` is true and `alive` is false, so it returns. Good.
+
+But for the first Space press, I need to call `start()`, not `togglePause()`. So I still need to check if the game has started.
+
+Let me add a `hasStarted()` method:
+
+```typescript
+hasStarted(): boolean {
+  return this.started;
+}
+```
+
+And in the key handler:
+```typescript
+case ' ':
+  e.preventDefault();
+  if (!game.hasStarted()) {
+    game.start();
+  } else {
+    game.togglePause();
+  }
+  break;
+```
+
+This should work correctly:
+- First Space: `hasStarted()` returns false, call `start()`
+- Subsequent Space during play: `hasStarted()` returns true, call `togglePause()`
+- Space during game over: `hasStarted()` returns true, call `togglePause()`, which returns early because `!this.alive`
+
+Perfect.
+
+Now let me also make sure the drawing is correct. The spec says:
+- "When the game is paused before first start, draw the text `Press Space to start` centered on the canvas."
+- "When the game is paused after first start, draw the text `Paused` centered on the canvas."
+- "When the game is over, draw `Game Over — press R to restart` centered on the canvas, and stop the tick (don't keep clearing/redrawing every frame)."
+
+My current draw logic:
+```typescript
+if (!this.alive) {
+  ctx.fillText('Game Over — press R to restart', ...);
+} else if (!this.started) {
+  ctx.fillText('Press Space to start', ...);
+} else if (this.paused) {
+  ctx.fillText('Paused', ...);
+}
+```
+
+Wait, this logic is slightly off. Let me think:
+- `!this.alive`: game over, show "Game Over — press R to restart"
+- `!this.started`: paused before first start, show "Press Space to start"
+- `this.paused`: paused after first start, show "Paused"
+
+But what about when the game is running normally? `this.alive` is true, `this.started` is true, `this.paused` is false. In this case, no overlay text is shown. That's correct.
+
+What about when the game is over? `this.alive` is false, `this.started` is true, `this.paused` is false (or true, doesn't matter). The first condition catches this and shows "Game Over". Good.
+
+What about when the game is paused before first start? `this.alive` is true, `this.started` is false, `this.paused` is true. The second condition catches this and shows "Press Space to start". Good.
+
+What about when the game is paused after first start? `this.alive` is true, `this.started` is true, `this.paused` is true. The third condition catches this and shows "Paused". Good.
+
+The logic looks correct.
+
+Now let me also make sure the initial state is correct:
+- `alive = true`
+- `started = false`
+- `paused = true`
+
+And after `start()`:
+- `alive = true`
+- `started = true`
+- `paused = false`
+
+And after `togglePause()` (pause):
+- `alive = true`
+- `started = true`
+- `paused = true`
+
+And after `togglePause()` (resume):
+- `alive = true`
+- `started = true`
+- `paused = false`
+
+And after game over:
+- `alive = false`
+- `started = true`
+- `paused = false` (or whatever it was)
+
+And after `restart()`:
+- `alive = true`
+- `started = false`
+- `paused = true`
+
+This all looks correct.
+
+One more thing: the spec says "stop the tick (don't keep clearing/redrawing every frame)" when game is over. In my `gameOver()` method, I call `this.cancelTick()` which stops the tick. And `draw()` is called once after that. So the game over screen is drawn once and then stops. Good.
+
+But wait, what if the player presses Space after game over? `togglePause()` returns early, so nothing happens. But what if they press R? `restart()` is called, which resets everything and draws the initial state. Good.
+
+Actually, I just realized there might be an issue. When the game is over, the tick is stopped. But if the player presses R, `restart()` is called, which should reset the game to the initial paused state. Let me check my `restart()` method:
+
+```typescript
+restart(): void {
+  this.cancelTick();
+  
+  this.initSnake();
+  this.spawnFood();
+  this.score = 0;
+  this.tickMs = INITIAL_TICK_MS;
+  this.alive = true;
+  this.started = false;
+  this.paused = true;
+  
+  this.scoreEl.textContent = `Score: ${this.score}`;
+  this.draw();
+}
+```
+
+This looks correct. It cancels any existing tick, resets all state, and draws the initial state.
+
+Now let me also check the `start()` method:
+
+```typescript
+start(): void {
+  if (!this.started && this.paused && this.alive) {
+    this.started = true;
+    this.paused = false;
+    this.scheduleTick();
+  }
+}
+```
+
+This checks that the game is in the initial state (not started, paused, alive) before starting. If called in any other state, it does nothing. Good.
+
+And `togglePause()`:
+
+```typescript
+togglePause(): void {
+  if (!this.started || !this.alive) return;
+  
+  this.paused = !this.paused;
+  if (this.paused) {
+    this.cancelTick();
+    this.draw();
+  } else {
+    this.scheduleTick();
+  }
+}
+```
+
+This checks that the game has started and is still alive before toggling pause. If called in any other state, it returns early. Good.
+
+Now let me also check the direction setting. The spec says:
+"Reverse-into-self prevention: a key that requests the exact opposite of the current direction is ignored."
+
+My `setDirection()` method:
+
+```typescript
+setDirection(newDir: Direction): void {
+  // Ignore if opposite direction
+  if (this.dir.x + newDir.x === 0 && this.dir.y + newDir.y === 0) {
+    return;
+  }
+  this.pendingDir = newDir;
+}
+```
+
+This checks if the new direction is opposite to the current direction. If so, it's ignored. Otherwise, it's stored as pending.
+
+Wait, there's a subtle issue here. The check `this.dir.x + newDir.x === 0 && this.dir.y + newDir.y === 0` works for opposite directions:
+- Right (1, 0) vs Left (-1, 0): 1 + (-1) = 0, 0 + 0 = 0, so both are 0, ignored. ✓
+- Down (0, 1) vs Up (0, -1): 0 + 0 = 0, 1 + (-1) = 0, so both are 0, ignored. ✓
+- Right (1, 0) vs Up (0, -1): 1 + 0 = 1 ≠ 0, not ignored. ✓
+- etc.
+
+This looks correct.
+
+But wait, I should also check if the new direction is the same as the current direction. If so, should I ignore it or accept it? The spec doesn't say, but logically, it doesn't matter. Setting the same direction has no effect.
+
+Actually, there's another issue. The spec says "a key that requests the exact opposite of the current direction is ignored." But what about the pending direction? If the player presses two keys quickly, the second key might be opposite to the pending direction, not the current direction.
+
+For example:
+1. Snake is moving right.
+2. Player presses Up (pending becomes Up).
+3. Player presses Down before the tick happens.
+
+Should Down be ignored because it's opposite to the pending direction (Up), or should it be accepted because it's not opposite to the current direction (Right)?
+
+The spec says "the exact opposite of the current direction", so I should check against the current direction, not the pending direction. My current implementation does this.
+
+But wait, there's another consideration. If the player presses Up and then Down quickly, and both are accepted, the snake would first turn Up, then turn Down on the next tick. This could cause the snake to reverse into itself.
+
+Let me think about this more carefully. The tick happens every 150ms (initially). If the player presses Up and then Down within 150ms, both are stored as pending. But only the last pending direction is used on the next tick.
+
+Actually, in my implementation, `pendingDir` is a single value, not a queue. So if the player presses Up and then Down, `pendingDir` becomes Down. On the next tick, the snake turns Down.
+
+But wait, the snake was moving Right. If it turns Down, that's a valid turn (not opposite to Right). So the snake would go from moving Right to moving Down. This is fine.
+
+But what if the player presses Left and then Right quickly? Left is opposite to Right, so it's ignored. Right is the same as the current direction, so it's accepted (but has no effect). The snake continues moving Right. This is fine.
+
+What if the player presses Up and then Left quickly? Up is accepted (pending becomes Up). Left is not opposite to Right (current direction), so it's accepted (pending becomes Left). On the next tick, the snake turns Left. This is fine.
+
+Hmm, but what if the player presses Up and then Down quickly? Up is accepted (pending becomes Up). Down is opposite to Right (current direction)? No, Down is (0, 1) and Right is (1, 0). They're not opposite. So Down is accepted (pending becomes Down). On the next tick, the snake turns Down. This is fine.
+
+Wait, I think I misunderstood. Let me re-read the spec:
+"Reverse-into-self prevention: a key that requests the exact opposite of the current direction is ignored."
+
+So the check is against the current direction, not the pending direction. My implementation is correct.
+
+But there's still a potential issue. If the player presses Up and then Down quickly, and the tick hasn't happened yet, the snake would turn Down on the next tick. But the snake was moving Right, so turning Down is valid. The snake goes from Right to Down, which is a 90-degree turn. This is fine.
+
+What if the player presses Up, then the tick happens (snake turns Up), then the player presses Down quickly? Down is opposite to Up (current direction), so it's ignored. The snake continues moving Up. This is correct.
+
+What if the player presses Up, then Down, then the tick happens? Up is accepted (pending becomes Up). Down is not opposite to Right (current direction), so it's accepted (pending becomes Down). On the tick, the snake turns Down. This is a valid move from Right to Down. The snake doesn't reverse into itself.
+
+I think my implementation is correct.
+
+Actually, let me reconsider. The issue is that between two ticks, the player can press multiple keys. If they press Up and then Down, the pending direction becomes Down. On the next tick, the snake turns Down. But the snake was moving Right, so turning Down is a valid 90-degree turn. The snake doesn't reverse into itself.
+
+But what if the player presses Up, then the tick happens (snake turns Up), then the player presses Down before the next tick? Down is opposite to Up (current direction), so it's ignored. The snake continues moving Up. This is correct.
+
+What if the player presses Up, then Down, then the tick happens? Let's trace:
+1. Snake is moving Right. Current direction: (1, 0).
+2. Player presses Up. Up is (0, -1). Not opposite to Right. Pending becomes (0, -1).
+3. Player presses Down. Down is (0, 1). Not opposite to Right (current direction). Pending becomes (0, 1).
+4. Tick happens. Direction becomes (0, 1) (Down). Snake moves Down.
+
+This is a valid move from Right to Down. The snake doesn't reverse into itself.
+
+But wait, what if the player intended to go Up and then Down, essentially canceling the Up? In my implementation, the snake would go Down, which might not be what the player intended. But this is a known issue with input buffering in Snake games. The spec doesn't mention how to handle this, so I'll stick with my current implementation.
+
+Actually, I realize there's a more subtle issue. What if the player presses Up, then Down, then Left, all before the tick? Let's trace:
+1. Snake is moving Right. Current direction: (1, 0).
+2. Player presses Up. Pending becomes (0, -1).
+3. Player presses Down. Pending becomes (0, 1).
+4. Player presses Left. Left is (-1, 0). Opposite to Right (current direction)? Yes! So Left is ignored.
+5. Tick happens. Direction becomes (0, 1) (Down). Snake moves Down.
+
+Hmm, Left is opposite to Right, so it's ignored. But the pending direction was Down, not Right. So the player might expect Left to be accepted (since they're turning Down, not Right).
+
+But the spec says "the exact opposite of the current direction", not the pending direction. So my implementation is correct according to the spec.
+
+Actually, let me re-read the spec more carefully:
+"Reverse-into-self prevention: a key that requests the exact opposite of the current direction is ignored."
+
+This is to prevent the snake from reversing into itself. If the snake is moving Right and the player presses Left, the snake would reverse into itself. So Left is ignored.
+
+But if the snake is moving Right and the player presses Up, then Left, the snake would first turn Up, then turn Left. This is a valid sequence of turns. But in my implementation, Left is ignored because it's opposite to Right (current direction), not Up (pending direction).
+
+Hmm, this might not be the intended behavior. Let me think about this more.
+
+Actually, I think the spec is clear: "the exact opposite of the current direction". So I should check against the current direction, not the pending direction. My implementation is correct.
+
+But this could lead to some unexpected behavior. For example:
+1. Snake is moving Right.
+2. Player presses Up (pending becomes Up).
+3. Player presses Left (opposite to Right, ignored).
+4. Tick happens. Snake turns Up.
+
+The player might have intended to turn Left after turning Up, but Left was ignored. This could be frustrating.
+
+But the spec is clear, so I'll stick with my implementation.
+
+Actually, let me reconsider. The spec says:
+"Reverse-into-self prevention: a key that requests the exact opposite of the current direction is ignored."
+
+The purpose is to prevent the snake from reversing into itself. If the snake is moving Right and the player presses Left, the snake would immediately reverse and collide with itself. So Left is ignored.
+
+But if the player presses Up and then Left, the snake would first turn Up, then turn Left. This is a valid sequence. But in my implementation, Left is ignored because it's opposite to Right (current direction).
+
+Hmm, I think the spec might be ambiguous here. Let me interpret it more liberally. The spec says "the current direction", which could mean the direction the snake is currently moving (which is the direction that was applied on the last tick). In my implementation, `this.dir` is the current direction.
+
+But there's also the pending direction, which is the direction that will be applied on the next tick. Should I check against the pending direction instead?
+
+Let me think about the game mechanics. The snake moves on each tick. Between ticks, the player can press keys to change the direction. The pending direction is stored and applied on the next tick.
+
+If the player presses Up and then Left, they want the snake to turn Up and then Left. But if Left is opposite to Right (current direction), it's ignored. This means the snake only turns Up, not Left.
+
+But wait, the snake hasn't turned Up yet. The tick hasn't happened. So the snake is still moving Right. If the player presses Left, the snake would turn Left, which is opposite to Right. This would cause the snake to reverse into itself immediately.
+
+So the check against the current direction is correct. The snake is still moving Right until the tick happens. If the player presses Left, the snake would turn Left and collide with itself.
+
+But what if the player presses Up and then Left quickly, and the tick happens after both key presses? The snake would turn Up (from the pending direction), not Left. So the snake doesn't reverse into itself.
+
+Hmm, but in my implementation, Left is ignored because it's opposite to Right. So the pending direction remains Up. On the tick, the snake turns Up. This is correct.
+
+But what if the player presses Up, then the tick happens (snake turns Up), then the player presses Left? Left is opposite to Up? No, Left is (-1, 0) and Up is (0, -1). They're not opposite. So Left is accepted. On the next tick, the snake turns Left. This is correct.
+
+I think my implementation is correct. The check against the current direction prevents the snake from reversing into itself immediately. The pending direction is applied on the next tick, so the snake doesn't reverse until the tick happens.
+
+OK let me just finalize the code. I think it's correct.
+
+Actually, I just realized there's another issue. In my `setDirection()` method, I check against `this.dir`, which is the current direction. But what if the player presses two keys quickly, and the second key is opposite to the first key (pending direction)?
+
+For example:
+1. Snake is moving Right. Current direction: (1, 0).
+2. Player presses Up. Pending becomes (0, -1).
+3. Player presses Down. Down is (0, 1). Not opposite to Right (current direction). Pending becomes (0, 1).
+4. Tick happens. Direction becomes (0, 1) (Down). Snake moves Down.
+
+This is a valid move. The snake goes from Right to Down. But the player might have intended to go Up and then Down, essentially canceling the Up. In my implementation, the snake goes Down, which might not be what the player intended.
+
+But this is a known issue with input buffering in Snake games. The spec doesn't mention how to handle this, so I'll stick with my current implementation.
+
+Actually, I think the issue is that I'm only storing one pending direction, not a queue. If I stored a queue of pending directions, the player could press Up and then Down, and the snake would turn Up on the first tick and Down on the second tick.
+
+But the spec doesn't mention this, and implementing a queue would be more complex. I'll stick with my current implementation.
+
+Let me finalize the code now.
+
+One more thing: I need to make sure the TypeScript compiles cleanly with `tsc --target ES2022 --module ES2022 --strict`. Let me check for any potential issues:
+
+1. `strictPropertyInitialization`: All properties are initialized in the constructor or have default values. ✓
+2. `strictNullChecks`: I'm using `!` for `getContext('2d')` which is safe. ✓
+3. No implicit `any`: All types are explicitly defined. ✓
+
+I think the code is ready. Let me write the final version.
+
+Actually, I just noticed that I'm using `game['started']` in the key handler, which is accessing a private property. I should add a public method `hasStarted()` instead.
+
+Let me also add a public method `isAlive()` for consistency, even though I don't strictly need it (I can just call `togglePause()` and it will return early if not alive).
+
+Actually, looking at my key handler again:
+```typescript
+case ' ':
+  e.preventDefault();
+  if (!game.hasStarted()) {
+    game.start();
+  } else {
+    game.togglePause();
+  }
+  break;
+```
+
+This should work. `togglePause()` will return early if the game is over, so Space does nothing when the game is over.
+
+OK let me finalize the code now.
+
+Wait, I also need to handle the case where the game is over and the player presses a direction key. Should direction keys be ignored when the game is over? The spec doesn't explicitly say, but logically, they should be ignored because the game is over.
+
+In my `setDirection()` method, I don't check if the game is alive. So direction keys are processed even when the game is over. But since the tick is stopped, the direction change has no effect. And if the player presses R to restart, the direction is reset anyway.
+
+Hmm, but the pending direction might persist across restarts. Let me check my `restart()` method:
+```typescript
+restart(): void {
+  this.cancelTick();
+  
+  this.initSnake();
+  this.spawnFood();
+  this.score = 0;
+  this.tickMs = INITIAL_TICK_MS;
+  this.alive = true;
+  this.started = false;
+  this.paused = true;
+  
+  this.scoreEl.textContent = `Score: ${this.score}`;
+  this.draw();
+}
+```
+
+And `initSnake()`:
+```typescript
+private initSnake(): void {
+  this.snake = [
+    { x: 10, y: 10 },
+    { x: 9, y: 10 },
+    { x: 8, y: 10 }
+  ];
+  this.dir = { x: 1, y: 0 };
+  this.pendingDir = null;
+}
+```
+
+Good, `pendingDir` is reset to `null` in `initSnake()`. So direction changes during game over don't persist across restarts.
+
+But still, it's a bit wasteful to process direction keys when the game is over. I could add a check in `setDirection()`:
+```typescript
+setDirection(newDir: Direction): void {
+  if (!this.alive) return;
+  // ...
+}
+```
+
+But the spec doesn't require this, and it doesn't cause any bugs. I'll leave it as is for simplicity.
+
+OK, I think the code is ready. Let me write the final version.
+
+Actually, one more thing. The spec says:
+"Listen for keys on `window` or `document`. Call `e.preventDefault()` on the keys you handle so the page doesn't scroll."
+
+I'm using `window.addEventListener('keydown', ...)`, which is correct. And I'm calling `e.preventDefault()` on all handled keys. Good.
+
+Also, the spec says:
+"When the game is over, draw `Game Over — press R to restart` centered on the canvas, and stop the tick (don't keep clearing/redrawing every frame)."
+
+In my `gameOver()` method, I call `this.cancelTick()` and then `this.draw()`. So the tick is stopped, and the game over screen is drawn once. Good.
+
+But wait, what if the player presses a direction key after game over? The `setDirection()` method is called, but the tick is stopped, so nothing happens. But should I redraw the screen? No, because the spec says "stop the tick (don't keep clearing/redrawing every frame)". So I shouldn't redraw on every key press.
+
+But in my current implementation, `setDirection()` doesn't call `draw()`. So the screen is not redrawn. Good.
+
+OK, I think the code is ready. Let me write the final version.
+
+Hmm, actually I realize I should double-check the self-collision logic one more time. The spec says:
+"Game-over conditions: head moves into a wall (out of grid) or into any other body segment. The snake may chase its own tail by exactly one cell — i.e. the tail cell that is *about* to vacate is not counted as a collision."
+
+So the tail cell that's about to vacate is not counted as a collision. In my implementation, I exclude the last segment (tail) from the collision check. This should be correct.
+
+But wait, what if the snake eats food? The tail doesn't vacate. So the tail should be counted as a collision in that case.
+
+Let me think about this more carefully. When the snake moves:
+1. Calculate new head position.
+2. Check collision with body segments.
+3. If no collision, add new head to front.
+4. If food eaten, don't remove tail (snake grows). Otherwise, remove tail.
+
+So the collision check happens before the move. At that point, we don't know if the snake will eat food or not. But we can predict: if the new head position is the food position, the snake will eat food and the tail won't vacate.
+
+So the collision check should be:
+- If new head is at food position, check collision with all body segments (including tail).
+- If new head is not at food position, check collision with all body segments except tail.
+
+Hmm, this is more complex. Let me re-read the spec:
+"The snake may chase its own tail by exactly one cell — i.e. the tail cell that is *about* to vacate is not counted as a collision."
+
+The key phrase is "the tail cell that is *about* to vacate". If the snake eats food, the tail doesn't vacate. So the tail cell is not "about to vacate" in that case.
+
+So my collision check should consider whether the snake will eat food or not.
+
+Let me update my collision logic:
+```typescript
+// Check self collision
+const willEatFood = newHead.x === this.food.x && newHead.y === this.food.y;
+const segmentsToCheck = willEatFood ? this.snake : this.snake.slice(0, -1);
+
+for (const segment of segmentsToCheck) {
+  if (segment.x === newHead.x && segment.y === newHead.y) {
+    this.gameOver();
+    return;
+  }
+}
+```
+
+Wait, but if the snake eats food, the new head is at the food position, which is not on the snake (food can't spawn on the snake). So the collision check with all body segments would still pass.
+
+Hmm, let me think about this again. The food is spawned on a random cell that is not occupied by the snake. So the food position is never on the snake. Therefore, if the new head is at the food position, it's not colliding with any body segment.
+
+So the collision check doesn't need to consider whether food will be eaten or not. The new head position is either:
+1. At the food position (not on the snake, no collision).
+2. Not at the food position (might be on the snake, check collision).
+
+In case 2, if the new head is at the tail position, the tail will vacate (because food is not eaten), so it's not a collision.
+
+So my original logic of excluding the tail from collision check is correct. The food consideration is irrelevant because food is never on the snake.
+
+Wait, but what if the snake is very long and wraps around, and the new head is at the tail position? Let me trace:
+1. Snake: [head, ..., tail]. Tail is at position T.
+2. Food is at position F (not on the snake).
+3. New head is at position T (the tail position).
+4. Check collision with all segments except tail.
+5. No collision (because T is the tail, and we excluded it).
+6. Move: add new head at T, remove tail.
+7. Snake is now: [T, head, ..., second-to-last].
+
+Wait, this doesn't look right. Let me trace more carefully:
+1. Snake: [A, B, C, D, E] where A is head, E is tail.
+2. New head is at position of E (the tail).
+3. Check collision with [A, B, C, D] (excluding E).
+4. No collision.
+5. Move: add new head at E's position, remove E.
+6. Snake is now: [E, A, B, C, D].
+
+Hmm, this is the snake chasing its tail. The head moved to where the tail was, and the tail moved away. This is allowed according to the spec.
+
+But wait, what if the snake is about to eat food at the tail position? That's impossible because food can't spawn on the snake. So this case doesn't exist.
+
+OK, I think my logic is correct. Let me finalize the code.
+
+Actually, I just realized there's a subtle issue. In my collision check, I'm iterating through the snake array and checking each segment. But I'm excluding the tail by iterating from 0 to length-2 (or using slice).
+
+Let me check my current implementation:
+```typescript
+// Check self collision (excluding tail that's about to vacate)
+const tail = this.snake[this.snake.length - 1];
+for (let i = 0; i < this.snake.length - 1; i++) {
+  if (this.snake[i].x === newHead.x && this.snake[i].y === newHead.y) {
+    this.gameOver();
+    return;
+  }
+}
+```
+
+Wait, I'm not using `tail` in this loop. Let me remove that unused variable.
+
+Actually, I think I had `tail` for a reason but then changed the logic. Let me clean this up:
+```typescript
+// Check self collision (excluding tail that's about to vacate)
+for (let i = 0; i < this.snake.length - 1; i++) {
+  if (this.snake[i].x === newHead.x && this.snake[i].y === newHead.y) {
+    this.gameOver();
+    return;
+  }
+}
+```
+
+This iterates through all segments except the last one (tail). Good.
+
+OK, I think the code is ready. Let me write the final version.
+
+One more thing: I should make sure the canvas text is centered correctly. The spec says:
+"Text overlays on canvas: `#fff`, 20px sans-serif, centered"
+
+I'm using:
+```typescript
+ctx.textAlign = 'center';
+ctx.textBaseline = 'middle';
+ctx.fillText(text, this.canvas.width / 2, this.canvas.height / 2);
+```
+
+This should center the text both horizontally and vertically. Good.
+
+OK, final code:
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Snake</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+    }
+    #score, #high {
+      margin: 5px 0;
+      font-size: 18px;
+    }
+    #game {
+      background: #000;
+      border: 2px solid #333;
+    }
+    #help {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <div id="score">Score: 0</div>
+  <div id="high">High: 0</div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <div id="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+  <script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;
+const SPEEDUP_DELTA = 10;
+
+class Game {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private scoreEl: HTMLElement;
+  private highEl: HTMLElement;
+
+  private snake: Cell[];
+  private dir: Direction;
+  private pendingDir: Direction | null;
+  private food: Cell;
+  private score: number;
+  private high: number;
+  private tickMs: number;
+  private alive: boolean;
+  private started: boolean;
+  private paused: boolean;
+  private tickId: number | null;
+
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+
+    const storedHigh = localStorage.getItem('snake.high');
+    this.high = storedHigh ? parseInt(storedHigh, 10) : 0;
+    this.highEl.textContent = `High: ${this.high}`;
+
+    this.snake = [];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.food = { x: 0, y: 0 };
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = false;
+    this.started = false;
+    this.paused = true;
+    this.tickId = null;
+
+    this.initSnake();
+    this.spawnFood();
+    this.alive = true;
+    this.draw();
+  }
+
+  private initSnake(): void {
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+  }
+
+  private spawnFood(): void {
+    const occupied = new Set<string>();
+    for (const cell of this.snake) {
+      occupied.add(`${cell.x},${cell.y}`);
+    }
+
+    let x: number;
+    let y: number;
+    do {
+      x = Math.floor(Math.random() * GRID);
+      y = Math.floor(Math.random() * GRID);
+    } while (occupied.has(`${x},${y}`));
+
+    this.food = { x, y };
+  }
+
+  start(): void {
+    if (!this.started && this.paused && this.alive) {
+      this.started = true;
+      this.paused = false;
+      this.scheduleTick();
+    }
+  }
+
+  togglePause(): void {
+    if (!this.started || !this.alive) return;
+
+    this.paused = !this.paused;
+    if (this.paused) {
+      this.cancelTick();
+      this.draw();
+    } else {
+      this.scheduleTick();
+    }
+  }
+
+  restart(): void {
+    this.cancelTick();
+
+    this.initSnake();
+    this.spawnFood();
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = true;
+    this.started = false;
+    this.paused = true;
+
+    this.scoreEl.textContent = `Score: ${this.score}`;
+    this.draw();
+  }
+
+  hasStarted(): boolean {
+    return this.started;
+  }
+
+  setDirection(newDir: Direction): void {
+    if (this.dir.x + newDir.x === 0 && this.dir.y + newDir.y === 0) {
+      return;
+    }
+    this.pendingDir = newDir;
+  }
+
+  private scheduleTick(): void {
+    this.cancelTick();
+    this.tickId = window.setTimeout(() => this.tick(), this.tickMs);
+  }
+
+  private cancelTick(): void {
+    if (this.tickId !== null) {
+      window.clearTimeout(this.tickId);
+      this.tickId = null;
+    }
+  }
+
+  private tick(): void {
+    if (this.paused || !this.alive) return;
+
+    if (this.pendingDir !== null) {
+      this.dir = this.pendingDir;
+      this.pendingDir = null;
+    }
+
+    const head = this.snake[0];
+    const newHead: Cell = {
+      x: head.x + this.dir.x,
+      y: head.y + this.dir.y
+    };
+
+    if (newHead.x < 0 || newHead.x >= GRID || newHead.y < 0 || newHead.y >= GRID) {
+      this.gameOver();
+      return;
+    }
+
+    for (let i = 0; i < this.snake.length - 1; i++) {
+      if (this.snake[i].x === newHead.x && this.snake[i].y === newHead.y) {
+        this.gameOver();
+        return;
+      }
+    }
+
+    this.snake.unshift(newHead);
+
+    if (newHead.x === this.food.x && newHead.y === this.food.y) {
+      this.score++;
+      this.scoreEl.textContent = `Score: ${this.score}`;
+
+      if (this.score > this.high) {
+        this.high = this.score;
+        this.highEl.textContent = `High: ${this.high}`;
+        localStorage.setItem('snake.high', String(this.high));
+      }
+
+      if (this.score % SPEEDUP_EVERY === 0) {
+        this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+      }
+
+      this.spawnFood();
+    } else {
+      this.snake.pop();
+    }
+
+    this.draw();
+    this.scheduleTick();
+  }
+
+  private gameOver(): void {
+    this.alive = false;
+    this.cancelTick();
+    this.draw();
+  }
+
+  private draw(): void {
+    const ctx = this.ctx;
+
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+
+    for (let i = 0; i < this.snake.length; i++) {
+      const cell = this.snake[i];
+      ctx.fillStyle = i === 0 ? '#7ed957' : '#3aa635';
+      ctx.fillRect(cell.x * CELL, cell.y * CELL, CELL, CELL);
+    }
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    if (!this.alive) {
+      ctx.fillText('Game Over — press R to restart', this.canvas.width / 2, this.canvas.height / 2);
+    } else if (!this.started) {
+      ctx.fillText('Press Space to start', this.canvas.width / 2, this.canvas.height / 2);
+    } else if (this.paused) {
+      ctx.fillText('Paused', this.canvas.width / 2, this.canvas.height / 2);
+    }
+  }
+}
+
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const scoreEl = document.getElementById('score') as HTMLElement;
+const highEl = document.getElementById('high') as HTMLElement;
+
+const game = new Game(canvas, scoreEl, highEl);
+
+window.addEventListener('keydown', (e: KeyboardEvent) => {
+  switch (e.key) {
+    case 'ArrowUp':
+    case 'w':
+    case 'W':
+      e.preventDefault();
+      game.setDirection({ x: 0, y: -1 });
+      break;
+    case 'ArrowDown':
+    case 's':
+    case 'S':
+      e.preventDefault();
+      game.setDirection({ x: 0, y: 1 });
+      break;
+    case 'ArrowLeft':
+    case 'a':
+    case 'A':
+      e.preventDefault();
+      game.setDirection({ x: -1, y: 0 });
+      break;
+    case 'ArrowRight':
+    case 'd':
+    case 'D':
+      e.preventDefault();
+      game.setDirection({ x: 1, y: 0 });
+      break;
+    case ' ':
+      e.preventDefault();
+      if (!game.hasStarted()) {
+        game.start();
+      } else {
+        game.togglePause();
+      }
+      break;
+    case 'r':
+    case 'R':
+      e.preventDefault();
+      game.restart();
+      break;
+  }
+});
+```
+
+Wait, I need to double-check the TypeScript compilation. Let me verify:
+
+1. All properties are initialized in the constructor. ✓
+2. `getContext('2d')` uses `!` for definite assignment. ✓
+3. No implicit `any`. ✓
+4. All types are correct. ✓
+
+I think this should compile cleanly.
+
+Actually, let me also check if there are any issues with the `localStorage` access. `localStorage.getItem('snake.high')` returns `string | null`. I'm handling the null case with a ternary operator. Good.
+
+And `localStorage.setItem('snake.high', String(this.high))` should work. `String(this.high)` converts the number to a string. Good.
+
+OK, I think the code is ready. Let me output it.

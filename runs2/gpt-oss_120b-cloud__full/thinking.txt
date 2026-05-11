@@ -1,0 +1,97 @@
+We need to output two code blocks: index.html and snake.ts. Must follow spec exactly. Provide HTML with style, elements, script src snake.js (compiled from ts). But we are writing ts file snake.ts; they will compile to snake.js. In HTML we reference snake.js. Provide style: page background #111, canvas background #000, border, etc. Also ensure body margin 0, display flex column align center maybe. Provide heading h1, score div id="score", high div id="high", canvas id="game" width/height 400, help text line.
+
+Implement Game class with required methods and private state. Must compile strict. We'll implement logic.
+
+Key aspects:
+
+- Grid 20x20, cell size 20.
+- Snake array of cells, head first? We'll store head at index 0 for easier. Starting snake: head (10,10), then (9,10), (8,10). Direction right (1,0). pendingDir null.
+
+- tick: if alive and not paused, move snake: compute new direction = pendingDir if not opposite, else keep current. Then compute new head = {x: head.x + dir.x, y: head.y + dir.y}. Check wall collision: if x<0||x>=GRID||y<0||y>=GRID => game over.
+
+- Check self collision: need to treat tail cell that will be removed as non-colliding. Since we grow when eating apple, we may not remove tail. So for collision detection, we can check if new head matches any cell in snake except the last cell (tail) because it will move away unless we are growing. However if we are about to eat apple, we will not remove tail, so collision with tail should count. So algorithm: Determine if apple will be eaten (new head equals food). If eating, we will keep tail, so collision check includes all snake cells. If not eating, we will remove tail after moving, so we can ignore tail cell. Simpler: check collision with snake.slice(0, -1) (all except tail) regardless; if eating, we also need to check tail because it stays. So we can compute willGrow = newHead.x===food.x && newHead.y===food.y. Then if snake.some(cell => cell.x===newHead.x && cell.y===newHead.y && (willGrow || cell !== snake[snake.length-1])) => game over.
+
+- After moving: unshift newHead to snake. If not eating, pop tail. If eating, increase score, maybe speed up, spawn new apple.
+
+- Apple spawn: random cell not occupied by snake. Use while loop.
+
+- Speed-up: after every 5 apples, tickMs = Math.max(MIN_TICK_MS, tickMs - SPEEDUP_DELTA). Keep track of apples eaten (score). When score % SPEEDUP_EVERY === 0 after increment, reduce tick.
+
+- Rendering: clear canvas, fill background black. Draw apple red. Draw snake: iterate snake cells; for each draw rectangle with appropriate color: head first cell use head color, others body color.
+
+- Overlays: if paused before first start (started false && paused true) show "Press Space to start". If paused after start (started true && paused true && alive) show "Paused". If game over (alive false) show "Game Over — press R to restart". Use fillStyle white, font 20px sans-serif, textAlign center, textBaseline middle, draw at canvas width/2, height/2.
+
+- Score and high UI: update innerText of scoreEl and highEl each tick or when score changes.
+
+- High score persisted: load from localStorage, store when new high achieved.
+
+- Game class methods:
+
+constructor(canvas, scoreEl, highEl) { assign, init state: this.canvas=canvas; this.ctx=canvas.getContext('2d')!; this.scoreEl=scoreEl; this.highEl=highEl; this.high = parseInt(localStorage.getItem('snake.high')||'0',10); this.reset(); }
+
+reset method (private) sets snake, dir, pendingDir null, food spawn, score 0, tickMs INITIAL_TICK_MS, alive true, started false, paused true. Also update UI.
+
+start(): if not started (first start) set started true, paused false, schedule tick via setTimeout loop. Actually we can have a method tickLoop that uses setTimeout based on tickMs. start should call this.togglePause? spec: start begins tick (called from Space when paused before first start). So start should set started true, paused false, and call scheduleTick.
+
+togglePause(): if not started return? Actually after first start, can pause/resume. So if !started return. If alive false (game over) ignore. Toggle paused flag. If now unpaused, schedule tick.
+
+restart(): call reset and render initial board (paused). Also cancel any pending timer.
+
+Need to manage timer ID: private timerId: number | null.
+
+scheduleTick(): if timerId not null clearTimeout. timerId = window.setTimeout(() => this.tick(), this.tickMs);
+
+tick(): if !alive or paused return. Move snake, check collisions, update state, render, if alive continue scheduleTick else render game over overlay (no further ticks). Also after moving, if score increased and speed up, adjust tickMs.
+
+Rendering: always draw board regardless of pause? For paused overlay we still draw board and overlay text. For game over we stop tick and render final board with overlay.
+
+Implement draw(): clear, fill background, draw apple, snake, overlay if needed.
+
+Edge Cases: reverse direction ignored: when handling key, if pendingDir null and new direction is opposite of current dir, ignore. Also if pendingDir already set, we may ignore opposite of current dir as well. We'll compute opposite by dir.x + newDir.x ===0 && dir.y + newDir.y===0.
+
+Key handling: window.addEventListener('keydown', e => { switch e.key ... }). Use e.key for ArrowUp etc and also 'w','a','s','d',' ' (space), 'r'. Prevent default for handled keys.
+
+Map direction: up {x:0,y:-1}, down {0,1}, left{-1,0}, right{1,0}.
+
+When key for direction pressed, if game not started? Should still set pendingDir? Probably allowed after start only. We'll set if started && !paused && alive.
+
+But spec: reverse-into-self prevention: ignore opposite direction.
+
+Implementation details: Use strict null checks.
+
+Now produce final code.
+
+Let's craft index.html:
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Snake</title>
+<style>
+body{margin:0;background:#111;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;}
+h1{margin:0.5em 0;}
+#score,#high{margin:0.2em 0;}
+canvas{border:2px solid #fff;background:#000;}
+#help{margin:0.5em 0;font-size:0.9em;color:#ccc;}
+</style>
+</head>
+<body>
+<h1>Snake</h1>
+<div id="score">Score: 0</div>
+<div id="high">High: 0</div>
+<canvas id="game" width="400" height="400"></canvas>
+<div id="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+<script src="snake.js" defer></script>
+</body>
+</html>
+
+Now snake.ts.
+
+We'll implement as described.
+
+Make sure to export nothing.
+
+Let's write.
+

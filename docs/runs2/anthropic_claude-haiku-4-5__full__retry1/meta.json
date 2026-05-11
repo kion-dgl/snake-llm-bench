@@ -1,0 +1,11 @@
+{
+  "model": "anthropic/claude-haiku-4-5",
+  "role": "fixup",
+  "baseRun": "runs2/anthropic_claude-haiku-4-5__full",
+  "attempt": 1,
+  "durationMs": 12887,
+  "promptEvalCount": 4711,
+  "evalCount": 2881,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T20:31:56.124Z"
+}

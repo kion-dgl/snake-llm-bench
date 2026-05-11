@@ -1,0 +1,208 @@
+"use strict";
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5; // apples
+const SPEEDUP_DELTA = 10; // ms
+class Game {
+    canvas;
+    scoreEl;
+    highEl;
+    ctx;
+    snake = [];
+    dir = { x: 1, y: 0 };
+    pendingDir = null;
+    food = null;
+    score = 0;
+    high = 0;
+    tickMs = INITIAL_TICK_MS;
+    alive = false;
+    started = false;
+    paused = true;
+    timer = null;
+    constructor(canvas, scoreEl, highEl) {
+        this.canvas = canvas;
+        this.scoreEl = scoreEl;
+        this.highEl = highEl;
+        this.ctx = canvas.getContext('2d');
+        this.high = parseInt(localStorage.getItem('snake.high') || '0', 10);
+        this.highEl.textContent = `High: ${this.high}`;
+        this.reset();
+    }
+    reset() {
+        this.snake = [
+            { x: 10, y: 10 },
+            { x: 9, y: 10 },
+            { x: 8, y: 10 },
+        ];
+        this.dir = { x: 1, y: 0 };
+        this.pendingDir = null;
+        this.food = this.generateFood();
+        this.score = 0;
+        this.scoreEl.textContent = `Score: ${this.score}`;
+        this.tickMs = INITIAL_TICK_MS;
+        this.alive = false;
+        this.started = false;
+        this.paused = true;
+        this.draw();
+    }
+    start() {
+        if (!this.started) {
+            this.started = true;
+            this.alive = true;
+            this.paused = false;
+            this.timer = setInterval(() => this.tick(), this.tickMs);
+        }
+        else if (this.paused) {
+            this.paused = false;
+            this.timer = setInterval(() => this.tick(), this.tickMs);
+        }
+    }
+    togglePause() {
+        if (this.started) {
+            this.paused = !this.paused;
+            if (this.paused) {
+                clearInterval(this.timer);
+            }
+            else {
+                this.timer = setInterval(() => this.tick(), this.tickMs);
+            }
+        }
+    }
+    restart() {
+        clearInterval(this.timer);
+        this.reset();
+    }
+    getDir() {
+        return this.dir;
+    }
+    setPendingDir(dir) {
+        this.pendingDir = dir;
+    }
+    tick() {
+        if (this.alive && !this.paused) {
+            const head = { x: this.snake[0].x + this.dir.x, y: this.snake[0].y + this.dir.y };
+            if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID || this.snake.some((cell, index) => index > 0 && cell.x === head.x && cell.y === head.y)) {
+                this.alive = false;
+                this.drawGameOver();
+            }
+            else {
+                this.snake.unshift(head);
+                if (this.food && this.food.x === head.x && this.food.y === head.y) {
+                    this.score++;
+                    this.scoreEl.textContent = `Score: ${this.score}`;
+                    if (this.score > this.high) {
+                        this.high = this.score;
+                        this.highEl.textContent = `High: ${this.high}`;
+                        localStorage.setItem('snake.high', this.high.toString());
+                    }
+                    this.food = this.generateFood();
+                    if (this.score % SPEEDUP_EVERY === 0) {
+                        this.tickMs = Math.max(this.tickMs - SPEEDUP_DELTA, MIN_TICK_MS);
+                        clearInterval(this.timer);
+                        this.timer = setInterval(() => this.tick(), this.tickMs);
+                    }
+                }
+                else {
+                    this.snake.pop();
+                }
+                if (this.pendingDir) {
+                    this.dir = this.pendingDir;
+                    this.pendingDir = null;
+                }
+                this.draw();
+            }
+        }
+    }
+    draw() {
+        this.ctx.clearRect(0, 0, GRID * CELL, GRID * CELL);
+        this.ctx.fillStyle = '#000';
+        this.ctx.fillRect(0, 0, GRID * CELL, GRID * CELL);
+        this.ctx.fillStyle = '#3aa635';
+        for (let i = 1; i < this.snake.length; i++) {
+            this.ctx.fillRect(this.snake[i].x * CELL, this.snake[i].y * CELL, CELL, CELL);
+        }
+        this.ctx.fillStyle = '#7ed957';
+        this.ctx.fillRect(this.snake[0].x * CELL, this.snake[0].y * CELL, CELL, CELL);
+        if (this.food) {
+            this.ctx.fillStyle = '#c0392b';
+            this.ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+        }
+        if (!this.started) {
+            this.drawStartText();
+        }
+        else if (this.paused) {
+            this.drawPausedText();
+        }
+    }
+    drawStartText() {
+        this.ctx.font = '20px sans-serif';
+        this.ctx.fillStyle = '#fff';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('Press Space to start', GRID * CELL / 2, GRID * CELL / 2);
+    }
+    drawPausedText() {
+        this.ctx.font = '20px sans-serif';
+        this.ctx.fillStyle = '#fff';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('Paused', GRID * CELL / 2, GRID * CELL / 2);
+    }
+    drawGameOver() {
+        this.ctx.clearRect(0, 0, GRID * CELL, GRID * CELL);
+        this.ctx.font = '20px sans-serif';
+        this.ctx.fillStyle = '#fff';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('Game Over — press R to restart', GRID * CELL / 2, GRID * CELL / 2);
+    }
+    generateFood() {
+        let food;
+        do {
+            food = { x: Math.floor(Math.random() * GRID), y: Math.floor(Math.random() * GRID) };
+        } while (this.snake.some(cell => cell.x === food.x && cell.y === food.y));
+        return food;
+    }
+}
+// Top-level setup:
+const canvas = document.getElementById('game');
+const scoreEl = document.getElementById('score');
+const highEl = document.getElementById('high');
+const game = new Game(canvas, scoreEl, highEl);
+document.addEventListener('keydown', (e) => {
+    e.preventDefault();
+    switch (e.key) {
+        case 'ArrowUp':
+        case 'w':
+            if (game.getDir().y !== 1) {
+                game.setPendingDir({ x: 0, y: -1 });
+            }
+            break;
+        case 'ArrowDown':
+        case 's':
+            if (game.getDir().y !== -1) {
+                game.setPendingDir({ x: 0, y: 1 });
+            }
+            break;
+        case 'ArrowLeft':
+        case 'a':
+            if (game.getDir().x !== 1) {
+                game.setPendingDir({ x: -1, y: 0 });
+            }
+            break;
+        case 'ArrowRight':
+        case 'd':
+            if (game.getDir().x !== -1) {
+                game.setPendingDir({ x: 1, y: 0 });
+            }
+            break;
+        case ' ':
+            game.start();
+            break;
+        case 'r':
+            game.restart();
+            break;
+    }
+});

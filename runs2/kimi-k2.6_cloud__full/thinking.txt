@@ -1,0 +1,47 @@
+Now I need to analyze the user's requirements. The user wants a Snake game with very strict specifications, requiring the use of vanilla TypeScript and HTML5 Canvas, with no frameworks, and only two files. The user has provided detailed mechanics, controls, UI, colors, and code structure requirements.
+
+First, I need to understand the core requirements of the user. The user wants a directly comparable version, so all details must be strictly followed. The game mechanics include a 20x20 grid, a cell size of 20px, a canvas of 400x400px, a snake starting with a length of 3, moving right, an initial tick interval of 150ms, speeding up every 5 apples, a minimum interval of 60ms, one apple at a time, the snake growing by 1 segment when eating an apple, game over conditions (hitting a wall or itself, but allowing chasing the tail), the game starts in a paused state, preventing reverse movement, and no wrap-around.
+
+The controls include arrow keys and WASD for movement, spacebar to start/pause, and R to restart. The UI requires an h1 title, score and high score display, a canvas, and help text. The high score must be persisted in localStorage. Colors and text styles are also specified.
+
+The code structure requires two files: index.html and snake.ts. The HTML must include a doctype, viewport meta, title, inline styles, and DOM elements. The TypeScript must use the specified type names and class structure, compile with --strict, and include strict property initialization and null checks.
+
+Now, I need to plan the implementation. First, consider the HTML file. It needs to include all the required elements: h1, score div, high score div, canvas, and help text. The styles must set the page background to #111, the canvas background to #000, and add a border. The canvas size must be 400x400.
+
+Next, the TypeScript part. The Game class needs a constructor that accepts canvas, scoreEl, and highEl. It needs to initialize the game state: snake array, direction, pending direction, food position, score, high score, tick interval, alive status, started status, and paused status. The start method begins the game loop, togglePause toggles the pause state, and restart resets the game.
+
+The game loop needs to use setTimeout or requestAnimationFrame, but the user specified a tick interval, so setTimeout might be more appropriate. Each tick updates the snake's position, checks for collisions, handles eating apples, and updates the score and speed.
+
+For drawing, the canvas needs to be cleared each time, then the grid, snake, and apple drawn. The snake's body is dark green, the head is bright green, and the apple is red. Text overlays need to be drawn in specific states: "Press Space to start" before the game starts, "Paused" when paused, and "Game Over" when the game is over.
+
+Keyboard event handling needs to listen on window, call e.preventDefault() to prevent scrolling. Movement keys update the pending direction, but reverse movement must be prevented. The spacebar starts or pauses the game, and R restarts.
+
+The high score needs to be read from localStorage and updated and saved when the game ends. The score display must update in real-time.
+
+Collision detection needs to check if the head is out of bounds or hits the body. However, the tail cell that is about to move is not counted as a collision, so the snake can chase its tail.
+
+Apple generation needs to randomly select an unoccupied cell. It might be necessary to maintain a set of occupied cells or check each time.
+
+Now, consider the code structure. The Game class needs private methods to handle drawing, updating, generating food, etc. The constructor initializes all properties, possibly using ! for definite assignment assertions.
+
+Type definitions: Cell is {x, y}, Direction is {x, y}. Constants are defined with const.
+
+Top-level code: get elements, read the high score from localStorage, instantiate Game, and add a keydown listener.
+
+I need to ensure TypeScript compiles with --strict, so all properties must be initialized, and types must be correct. For example, pendingDir might be null, so the type is Direction | null.
+
+For the game loop, I might use a loop method that calls setTimeout recursively. When paused or game over, stop the loop.
+
+Drawing text overlays: use fillText, set the font and color, and center it.
+
+Now, consider specific implementation details. Snake movement: add a new head based on the direction, remove the tail if no apple is eaten. Eating an apple: increment the score, do not remove the tail, generate a new apple.
+
+Speed increase: every 5 apples, decrease the tick interval by 10ms, with a minimum of 60ms.
+
+Keyboard handling: use a switch or if-else to check the key, update pendingDir. Note that reverse movement is prevented, e.g., if currently moving right, left is ignored.
+
+Game state management: started indicates whether the game has started, paused indicates whether it is paused, alive indicates whether the snake is alive.
+
+When restarting, reset all states to initial values, but keep the high score.
+
+Now, I think I have considered the main parts and can start writing the code. Ensure all requirements are met, including colors, text, behavior, etc.

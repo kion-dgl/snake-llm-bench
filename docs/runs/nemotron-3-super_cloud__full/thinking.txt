@@ -1,0 +1,203 @@
+We need to output exactly two fenced code blocks: first HTML, then TypeScript. No extra text. Ensure the HTML includes script src="snake.js" defer. The TS file must compile with strict options, no implicit any. We'll write simple snake game.
+
+Implementation details:
+
+- Canvas element with id "gameCanvas".
+- Use requestAnimationFrame loop.
+- Define types: Point {x:number; y:number}.
+- Snake as array of points, direction.
+- Food point.
+- Score variable.
+- Game over flag.
+- Event listener for keydown to change direction (prevent reverse).
+- Draw function clears canvas, draws snake, food, score text.
+- Update function moves snake, checks collisions, grows if food eaten.
+- Loop: if not gameOver, update then draw, then requestAnimationFrame.
+
+Need to ensure no implicit any: specify types for all variables, function parameters, return types.
+
+We'll compile to ES2022 module, so we can use export? Not needed as script type module? The HTML script src with defer loads as classic script unless type="module". Since we compile to ES2022 module, we need to either add type="module" in script tag, or keep as classic but output is ES2022 module which may not work. Simpler: keep script type="module". The requirement: HTML must load the compiled JS via `<script src="snake.js" defer></script>`. It didn't specify type, but we can add type="module". It's still a script src. We'll add type="module". That's fine.
+
+Thus in HTML: <script src="snake.js" defer type="module"></script>.
+
+Now TS file: Since it's a module, we can use top-level await? Not needed. We'll just have code.
+
+We'll need to access canvas via document.getElementById.
+
+Let's write.
+
+Check for any implicit any: We'll declare const canvas: HTMLCanvasElement | null = document.getElementById('gameCanvas') as HTMLCanvasElement; but that uses as, which is okay but we could use ! after getElementById if we know it's not null. Better: const canvas = document.getElementById('gameCanvas')! as HTMLCanvasElement; but that still uses any? The ! asserts non-null, but the type is HTMLElement | null, then ! yields HTMLElement, then as HTMLCanvasElement. Could also do const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement; If element missing, it's still HTMLCanvasElement? Actually getElementById returns HTMLElement | null; casting to HTMLCanvasElement is okay but if null, runtime error. We'll assume it's there.
+
+We'll avoid any by specifying types.
+
+Let's write code.
+
+Potential pitfalls: need to prevent immediate reverse direction (e.g., if going up, cannot go down). We'll store nextDirection and apply after move.
+
+Implementation:
+
+- const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+- const ctx = canvas.getContext('2d')!; // assert not null
+- const gridSize = 20;
+- const width = canvas.width;
+- const height = canvas.height;
+
+But we need to set canvas width/height via CSS or attributes. We'll set in HTML: width="400" height="400".
+
+Now TS:
+
+let snake: Point[] = [{x: 10, y: 10}];
+let direction: Point = {x: 1, y: 0}; // moving right
+let nextDirection: Point = direction;
+let food: Point = {x: 0, y: 0};
+let score = 0;
+let gameOver = false;
+let lastRender = 0;
+
+function generateFood() {
+  food = {
+    x: Math.floor(Math.random() * (width / gridSize)),
+    y: Math.floor(Math.random() * (height / gridSize))
+  };
+  // ensure not on snake
+  if (snake.some(p => p.x === food.x && p.y === food.y)) {
+    generateFood();
+  }
+}
+
+function update(timestamp: number) {
+  if (gameOver) return;
+  const delta = timestamp - lastRender;
+  if (delta < 100) { // 10 fps? Actually we want maybe 100ms per frame => 10 fps. Could adjust.
+    requestAnimationFrame(update);
+    return;
+  }
+  lastRender = timestamp;
+  direction = nextDirection;
+  const head = {x: snake[0].x + direction.x, y: snake[0].y + direction.y};
+  // wall collision
+  if (head.x< 0 || head.x >= width/gridSize || head.y < 0 || head.y >= height/gridSize) {
+    gameOver = true;
+    return;
+  }
+  // self collision
+  if (snake.some(seg => seg.x === head.x && seg.y === head.y)) {
+    gameOver = true;
+    return;
+  }
+  snake.unshift(head);
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    generateFood();
+  } else {
+    snake.pop();
+  }
+}
+
+function draw() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,width,height);
+  // draw snake
+  ctx.fillStyle = '#0f0';
+  snake.forEach(seg => {
+    ctx.fillRect(seg.x*gridSize, seg.y*gridSize, gridSize-1, gridSize-1);
+  });
+  // draw food
+  ctx.fillStyle = '#f00';
+  ctx.fillRect(food.x*gridSize, food.y*gridSize, gridSize-1, gridSize-1);
+  // draw score
+  ctx.fillStyle = '#fff';
+  ctx.font = '16px sans-serif';
+  ctx.fillText(`Score: ${score}`, 10, 20);
+}
+
+function loop(timestamp: number) {
+  update(timestamp);
+  draw();
+  if (!gameOver) {
+    requestAnimationFrame(loop);
+  } else {
+    // show game over text
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0,0,width,height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px sans-serif';
+    ctx.fillText('Game Over', width/2 - 50, height/2);
+    ctx.fillText(`Final Score: ${score}`, width/2 - 70, height/2 + 30);
+  }
+}
+
+// init
+canvas.width = 400;
+canvas.height = 400;
+generateFood();
+requestAnimationFrame(loop);
+
+// input
+window.addEventListener('keydown', e => {
+  switch(e.key) {
+    case 'ArrowUp':
+      if (direction.y !== 0) { nextDirection = {x:0, y:-1}; }
+      break;
+    case 'ArrowDown':
+      if (direction.y !== 0) { nextDirection = {x:0, y:1}; }
+      break;
+    case 'ArrowLeft':
+      if (direction.x !== 0) { nextDirection = {x:-1, y:0}; }
+      break;
+    case 'ArrowRight':
+      if (direction.x !== 0) { nextDirection = {x:1, y:0}; }
+      break;
+  }
+});
+
+We need to define Point interface.
+
+interface Point { x:number; y:number; }
+
+Now ensure no implicit any: All variables typed.
+
+Check: const ctx = canvas.getContext('2d')!; The ! asserts non-null, but getContext returns CanvasRenderingContext2D | null. So after ! it's CanvasRenderingContext2D. Good.
+
+We used const width = canvas.width; but canvas.width is number (since we set). Good.
+
+Potential any: In event listener, e: KeyboardEvent. We'll type.
+
+window.addEventListener('keydown', (e: KeyboardEvent) => { ... });
+
+Now ensure we didn't use any.
+
+Now HTML:
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snake Game</title>
+  <style>
+    canvas { display: block; margin: 20px auto; background: #111; }
+  </style>
+</head>
+<body>
+  <h1>Snake Game</h1><p>Score: <span id="score">0</span></p> <!-- but we draw score on canvas; requirement: page must contain literal word "Score" somewhere visible. We have<p>Score:</p> includes Score. Good. -->
+  <canvas id="gameCanvas" width="400" height="400"></canvas><script src="snake.js" defer type="module"></script>
+</body>
+</html>
+
+But we also draw score on canvas; having duplicate is fine.
+
+Make sure the literal word "Score" appears. Yes.
+
+Now ensure no extra text outside fenced blocks. We'll output exactly:
+
+```html
+...html...
+```
+
+```typescript
+...ts...
+```
+
+No extra commentary.
+
+Let's craft final answer.

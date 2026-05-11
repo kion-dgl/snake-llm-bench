@@ -1,0 +1,10 @@
+{
+  "model": "google/gemma-3-27b-it",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 35747,
+  "promptEvalCount": 200,
+  "evalCount": 917,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T20:24:03.830Z"
+}

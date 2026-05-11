@@ -1,0 +1,226 @@
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;       // apples
+const SPEEDUP_DELTA = 10;      // ms
+
+class Game {
+  snake: Cell[];
+  dir: Direction;
+  pendingDir: Direction | null;
+  food: Cell;
+  score: number;
+  high: number;
+  tickMs: number;
+  alive: boolean;
+  started: boolean;
+  paused: boolean;
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  scoreEl: HTMLElement;
+  highEl: HTMLElement;
+  tickId: number | null = null;
+
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+
+    this.snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.food = this.generateFood();
+    this.score = 0;
+    this.high = parseInt(localStorage.getItem('snake.high') || '0', 10);
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = false;
+    this.started = false;
+    this.paused = true;
+  }
+
+  start(): void {
+    if (!this.started) {
+      this.started = true;
+      this.paused = false;
+      this.tick();
+    } else {
+      this.togglePause();
+    }
+  }
+
+  togglePause(): void {
+    this.paused = !this.paused;
+    if (this.paused) {
+      if (this.tickId !== null) {
+        clearInterval(this.tickId);
+        this.tickId = null;
+      }
+      this.drawPause();
+    } else {
+      this.tick();
+    }
+  }
+
+  restart(): void {
+    this.paused = true;
+    this.started = false;
+    this.alive = false;
+    this.score = 0;
+    this.updateScore();
+    this.snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.food = this.generateFood();
+    this.tickMs = INITIAL_TICK_MS;
+    this.draw();
+    this.drawPause();
+  }
+
+  private tick(): void {
+    if (!this.alive) return;
+
+    this.tickId = setInterval(() => {
+      if (!this.alive) return;
+
+      if (this.pendingDir) {
+        this.dir = this.pendingDir;
+        this.pendingDir = null;
+      }
+
+      const head = { x: this.snake[0].x + this.dir.x, y: this.snake[0].y + this.dir.y };
+
+      if (this.isGameOver(head)) {
+        this.alive = false;
+        this.drawGameOver();
+        clearInterval(this.tickId);
+        this.tickId = null;
+        return;
+      }
+
+      if (head.x === this.food.x && head.y === this.food.y) {
+        this.score++;
+        this.updateScore();
+        this.snake.unshift(head);
+        this.food = this.generateFood();
+
+        if (this.score % SPEEDUP_EVERY === 0) {
+          this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+        }
+      } else {
+        this.snake.unshift(head);
+        this.snake.pop();
+      }
+
+      this.draw();
+    }, this.tickMs);
+  }
+
+  private isGameOver(head: Cell): boolean {
+    if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) {
+      return true;
+    }
+
+    const tail = this.snake[this.snake.length - 1];
+    if (head.x === tail.x && head.y === tail.y && this.snake.length > 3) {
+      return true;
+    }
+
+    for (let i = 0; i < this.snake.length - 1; i++) {
+      if (head.x === this.snake[i].x && head.y === this.snake[i].y) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private draw(): void {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.ctx.fillStyle = '#3aa635';
+    for (let i = 1; i < this.snake.length; i++) {
+      this.drawCell(this.snake[i]);
+    }
+
+    this.ctx.fillStyle = '#7ed957';
+    this.drawCell(this.snake[0]);
+
+    this.ctx.fillStyle = '#c0392b';
+    this.drawCell(this.food);
+  }
+
+  private drawCell(cell: Cell): void {
+    this.ctx.fillRect(cell.x * CELL, cell.y * CELL, CELL, CELL);
+  }
+
+  private drawPause(): void {
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = '20px sans-serif';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Press Space to start', this.canvas.width / 2, this.canvas.height / 2);
+  }
+
+  private drawGameOver(): void {
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = '20px sans-serif';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Game Over — press R to restart', this.canvas.width / 2, this.canvas.height / 2);
+  }
+
+  private generateFood(): Cell {
+    let food: Cell;
+    do {
+      food = { x: Math.floor(Math.random() * GRID), y: Math.floor(Math.random() * GRID) };
+    } while (this.snake.some(segment => segment.x === food.x && segment.y === food.y));
+    return food;
+  }
+
+  private updateScore(): void {
+    this.scoreEl.textContent = `Score: ${this.score}`;
+    this.high = Math.max(this.high, this.score);
+    this.highEl.textContent = `High: ${this.high}`;
+    localStorage.setItem('snake.high', this.high.toString());
+  }
+}
+
+// Top-level setup
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const scoreEl = document.getElementById('score') as HTMLElement;
+const highEl = document.getElementById('high') as HTMLElement;
+
+const game = new Game(canvas, scoreEl, highEl);
+
+window.addEventListener('keydown', (e) => {
+  e.preventDefault();
+  if (game.paused) return;
+
+  switch (e.key) {
+    case 'ArrowUp':
+    case 'w':
+      game.pendingDir = { x: 0, y: -1 };
+      break;
+    case 'ArrowDown':
+    case 's':
+      game.pendingDir = { x: 0, y: 1 };
+      break;
+    case 'ArrowLeft':
+    case 'a':
+      game.pendingDir = { x: -1, y: 0 };
+      break;
+    case 'ArrowRight':
+    case 'd':
+      game.pendingDir = { x: 1, y: 0 };
+      break;
+    case ' ':
+      game.start();
+      break;
+    case 'r':
+      game.restart();
+      break;
+  }
+});

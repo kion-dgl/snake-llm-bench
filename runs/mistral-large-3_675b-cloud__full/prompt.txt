@@ -1,0 +1,21 @@
+Design and implement a Snake game.
+
+Stack: vanilla TypeScript + HTML5 Canvas. No frameworks, no build tools beyond `tsc`.
+
+Requirements:
+- Two files: `index.html` and `snake.ts`.
+- The HTML must load the compiled JS via `<script src="snake.js" defer></script>`.
+- `snake.ts` must compile cleanly with `tsc --target ES2022 --module ES2022 --strict` (no type errors, no implicit any).
+- Arrow keys to control. Visible score. Game-over on wall or self collision.
+- The page must contain the literal word "Score" somewhere visible.
+- Do not import anything. Browser globals only.
+
+Output exactly two fenced code blocks, in this order, nothing else:
+
+```html
+<!-- index.html content -->
+```
+
+```typescript
+// snake.ts content
+```

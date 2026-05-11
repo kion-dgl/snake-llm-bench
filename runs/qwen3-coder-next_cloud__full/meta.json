@@ -1,0 +1,10 @@
+{
+  "model": "qwen3-coder-next:cloud",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 19571,
+  "promptEvalCount": 183,
+  "evalCount": 1673,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T14:36:43.463Z"
+}

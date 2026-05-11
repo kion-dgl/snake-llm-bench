@@ -1,0 +1,11 @@
+{
+  "model": "glm-5:cloud",
+  "role": "fixup",
+  "baseRun": "runs2/glm-5_cloud__full",
+  "attempt": 1,
+  "durationMs": 110369,
+  "promptEvalCount": 1618,
+  "evalCount": 16023,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:43:53.569Z"
+}

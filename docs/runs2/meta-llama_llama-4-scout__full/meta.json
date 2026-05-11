@@ -1,0 +1,10 @@
+{
+  "model": "meta-llama/llama-4-scout",
+  "role": "full",
+  "durationMs": 31605,
+  "promptEvalCount": 1336,
+  "evalCount": 1967,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T20:38:28.704Z",
+  "promptSource": "prompts/snake-spec.md"
+}

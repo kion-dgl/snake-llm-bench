@@ -1,0 +1,10 @@
+{
+  "model": "gpt-oss:20b",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 196938,
+  "promptEvalCount": 240,
+  "evalCount": 2095,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T17:25:28.179Z"
+}

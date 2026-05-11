@@ -1,0 +1,11 @@
+{
+  "model": "gpt-oss:20b",
+  "role": "fixup",
+  "baseRun": "runs/gpt-oss_20b__full",
+  "attempt": 2,
+  "durationMs": 1145350,
+  "promptEvalCount": 1658,
+  "evalCount": 8456,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T17:54:44.674Z"
+}

@@ -1,0 +1,195 @@
+// snake.ts
+type Nullable<T> = T | null;
+
+enum Direction {
+  Up,
+  Down,
+  Left,
+  Right,
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+class SnakeGame {
+  private readonly canvas: HTMLCanvasElement;
+  private readonly ctx: CanvasRenderingContext2D;
+  private readonly cellSize: number = 20;
+  private readonly cols: number;
+  private readonly rows: number;
+  private snake: Point[] = [];
+  private direction: Direction = Direction.Right;
+  private nextDirection: Direction = Direction.Right;
+  private food: Point = { x: 0, y: 0 };
+  private score: number = 0;
+  private intervalId: Nullable<number> = null;
+  private readonly speed: number = 100; // ms per step
+  private readonly scoreElement: HTMLElement;
+
+  constructor(canvasId: string, scoreId: string) {
+    const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d');
+    if (!canvas || !ctx) {
+      throw new Error('Canvas not supported');
+    }
+    this.canvas = canvas;
+    this.ctx = ctx;
+    this.cols = Math.floor(this.canvas.width / this.cellSize);
+    this.rows = Math.floor(this.canvas.height / this.cellSize);
+    const scoreEl = document.getElementById(scoreId);
+    if (!scoreEl) {
+      throw new Error('Score element not found');
+    }
+    this.scoreElement = scoreEl;
+    this.reset();
+    this.attachKeyboard();
+    this.start();
+  }
+
+  private reset(): void {
+    this.snake = [
+      { x: Math.floor(this.cols / 2), y: Math.floor(this.rows / 2) },
+    ];
+    this.direction = Direction.Right;
+    this.nextDirection = Direction.Right;
+    this.placeFood();
+    this.score = 0;
+    this.updateScore();
+  }
+
+  private attachKeyboard(): void {
+    window.addEventListener('keydown', (e: KeyboardEvent) => {
+      switch (e.key) {
+        case 'ArrowUp':
+          if (this.direction !== Direction.Down) this.nextDirection = Direction.Up;
+          break;
+        case 'ArrowDown':
+          if (this.direction !== Direction.Up) this.nextDirection = Direction.Down;
+          break;
+        case 'ArrowLeft':
+          if (this.direction !== Direction.Right) this.nextDirection = Direction.Left;
+          break;
+        case 'ArrowRight':
+          if (this.direction !== Direction.Left) this.nextDirection = Direction.Right;
+          break;
+      }
+    });
+  }
+
+  private start(): void {
+    this.intervalId = window.setInterval(() => this.gameLoop(), this.speed);
+  }
+
+  private stop(): void {
+    if (this.intervalId !== null) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+  }
+
+  private gameLoop(): void {
+    this.updateDirection();
+    this.moveSnake();
+    this.checkCollisions();
+    this.draw();
+  }
+
+  private updateDirection(): void {
+    this.direction = this.nextDirection;
+  }
+
+  private moveSnake(): void {
+    const head = this.snake[0];
+    const newHead: Point = { x: head.x, y: head.y };
+    switch (this.direction) {
+      case Direction.Up:
+        newHead.y -= 1;
+        break;
+      case Direction.Down:
+        newHead.y += 1;
+        break;
+      case Direction.Left:
+        newHead.x -= 1;
+        break;
+      case Direction.Right:
+        newHead.x += 1;
+        break;
+    }
+    this.snake.unshift(newHead);
+    if (newHead.x === this.food.x && newHead.y === this.food.y) {
+      this.score += 1;
+      this.updateScore();
+      this.placeFood();
+    } else {
+      this.snake.pop();
+    }
+  }
+
+  private checkCollisions(): void {
+    const head = this.snake[0];
+    // Wall collision
+    if (head.x < 0 || head.x >= this.cols || head.y < 0 || head.y >= this.rows) {
+      this.gameOver();
+      return;
+    }
+    // Self collision
+    for (let i = 1; i < this.snake.length; i++) {
+      const segment = this.snake[i];
+      if (head.x === segment.x && head.y === segment.y) {
+        this.gameOver();
+        return;
+      }
+    }
+  }
+
+  private gameOver(): void {
+    this.stop();
+    alert(`Game Over! Your score: ${this.score}`);
+    this.reset();
+    this.start();
+  }
+
+  private placeFood(): void {
+    let newFood: Point;
+    do {
+      newFood = {
+        x: Math.floor(Math.random() * this.cols),
+        y: Math.floor(Math.random() * this.rows),
+      };
+    } while (this.snake.some(seg => seg.x === newFood.x && seg.y === newFood.y));
+    this.food = newFood;
+  }
+
+  private updateScore(): void {
+    this.scoreElement.textContent = `Score: ${this.score}`;
+  }
+
+  private drawCell(p: Point, color: string): void {
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(
+      p.x * this.cellSize,
+      p.y * this.cellSize,
+      this.cellSize,
+      this.cellSize
+    );
+  }
+
+  private draw(): void {
+    // Clear board
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    // Draw food
+    this.drawCell(this.food, 'red');
+    // Draw snake
+    this.snake.forEach((segment, index) => {
+      const color = index === 0 ? 'lime' : 'green';
+      this.drawCell(segment, color);
+    });
+  }
+}
+
+// Initialise the game when the page is ready
+window.addEventListener('load', () => {
+  new SnakeGame('gameCanvas', 'score');
+});

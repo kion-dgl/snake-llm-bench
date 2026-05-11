@@ -1,0 +1,2 @@
+The task is to build a Snake game with exact specifications in two files: index.html and snake.ts.
+I need to create a Snake game following the exact specs in two files: index.html and snake.ts.

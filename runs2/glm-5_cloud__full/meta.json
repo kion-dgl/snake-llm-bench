@@ -1,0 +1,10 @@
+{
+  "model": "glm-5:cloud",
+  "role": "full",
+  "durationMs": 151182,
+  "promptEvalCount": 1346,
+  "evalCount": 16384,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:42:02.842Z",
+  "promptSource": "prompts/snake-spec.md"
+}

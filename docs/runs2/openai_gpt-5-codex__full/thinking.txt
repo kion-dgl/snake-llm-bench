@@ -1,0 +1,23 @@
+**Detailing direction input and game update logic**
+
+I'll work through managing direction input carefully to prevent illegal turns, settling on queuing one pending direction to keep it simple and fair. Then I’m outlining how the game state updates on each tick—handling movement, collision, scoring, speed changes, and drawing—while making sure pausing, restarting, and localStorage high-score tracking integrate smoothly.**Planning state initialization and score handling**
+
+I'm defining class properties with safe initial values or definite assignment, setting up methods to reset game state, spawn food fairly, and update score and high-score displays. I’m also working through how to load and persist high scores, handle event input cleanly, and keep canvas drawing consistent with game states.**Detailing game setup, input handling, and UI structure**
+
+I'm mapping out the constructor, restart logic, food spawning, score and high-score updates, keyboard event handling with careful start/pause logic, and planning the HTML layout and CSS styling to create a polished Snake game interface.**Clarifying game state management and input logic**
+
+I'm finalizing how the constructor, restart, and drawing methods coordinate game state like `high`, `started`, and `paused`, while carefully managing input to avoid opposite-direction moves even before the game starts; also setting up tick scheduling and game-over handling for smooth flow.**Finalizing direction handling and initialization**
+
+I'm refining the handleDirection logic to allow multiple direction changes before the game starts—updating both `dir` and `pendingDir` to keep the snake responsive—and setting up the top-level initialization with input event handling, localStorage parsing for high score, and shared direction constants for clean, efficient code.**Refining direction input constraints**
+
+I'm reevaluating the direction handling to simplify logic by removing special pre-start cases—limiting to one pending direction at a time—and ensuring opposite or duplicate directions get ignored. This keeps input handling consistent before start, during pause, and gameplay, even if it restricts rapid direction changes before the game begins.**Enhancing direction input with two-step queue**
+
+I'm designing a system to allow queuing up to two direction changes by adding a second pending direction, which lets players override pending inputs as long as they're not opposite the last queued or current direction. This approach helps prevent immediate self-collisions from quick input combos while keeping input responsiveness smooth and fair.**Reviewing game state resets and spawn logic**
+
+I’m making sure the game properly resets its state on restart and game over, including clearing direction inputs and pausing the game. I'm also verifying that spawning new food avoids snake overlap, that scores and highs load and update correctly from localStorage, and that the timing and drawing cycles run smoothly after these state changes.**Finalizing game setup and UI integration**
+
+I’m making sure the scoreboard elements are updated correctly, the food position handles no-free-cell edge cases, and all TypeScript typings and strictness checks are respected. I’m also preparing the final HTML/CSS structure with specified styles and meta tags, plus robust event handling for keyboard controls to fit the game’s start, pause, restart, and movement logic.**Preparing complete game code and HTML**
+
+I’m assembling the full TypeScript implementation for the snake game with all core logic, event handling, and state management, alongside the HTML skeleton including style and markup. This ensures the game runs smoothly with proper types, display, and controls wired up in one neat package.**Completing polished game TypeScript implementation with setup**
+
+I’m finalizing the clean, fully typed TypeScript code for the snake game along with the proper DOM element guards and keyboard event handling to make sure everything wires up reliably and clearly. This will deliver a solid, maintainable game core ready to run.

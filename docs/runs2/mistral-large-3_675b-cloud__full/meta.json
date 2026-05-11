@@ -1,0 +1,10 @@
+{
+  "model": "mistral-large-3:675b-cloud",
+  "role": "full",
+  "durationMs": 31428,
+  "promptEvalCount": 1404,
+  "evalCount": 2191,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:47:46.526Z",
+  "promptSource": "prompts/snake-spec.md"
+}

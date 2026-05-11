@@ -1,0 +1,16 @@
+{
+  "runDir": "runs/qwen3-coder_30b__full__retry3",
+  "passed": 0,
+  "total": 2,
+  "score": 0,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": false
+    }
+  ]
+}

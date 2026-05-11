@@ -1,0 +1,10 @@
+{
+  "model": "google/gemini-2.5-flash",
+  "role": "full",
+  "durationMs": 10410,
+  "promptEvalCount": 1454,
+  "evalCount": 2738,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T20:31:25.133Z",
+  "promptSource": "prompts/snake-spec.md"
+}

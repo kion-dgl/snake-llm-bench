@@ -1,0 +1,115 @@
+interface Point {
+  x: number;
+  y: number;
+}
+
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+const ctx = canvas.getContext('2d')!;
+const gridSize = 20;
+const width = canvas.width;
+const height = canvas.height;
+
+let snake: Point[] = [{ x: 10, y: 10 }];
+let direction: Point = { x: 1, y: 0 };
+let nextDirection: Point = direction;
+let food: Point = { x: 0, y: 0 };
+let score = 0;
+let gameOver = false;
+let lastRender = 0;
+const scoreSpan = document.getElementById('score')!;
+
+function generateFood(): void {
+  food = {
+    x: Math.floor(Math.random() * (width / gridSize)),
+    y: Math.floor(Math.random() * (height / gridSize))
+  };
+  if (snake.some(p => p.x === food.x && p.y === food.y)) {
+    generateFood();
+  }
+}
+
+function update(): void {
+  direction = nextDirection;
+  const head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+
+  if (
+    head.x < 0 ||
+    head.x >= width / gridSize ||
+    head.y < 0 ||
+    head.y >= height / gridSize
+  ) {
+    gameOver = true;
+    return;
+  }
+  if (snake.some(seg => seg.x === head.x && seg.y === head.y)) {
+    gameOver = true;
+    return;
+  }
+
+  snake.unshift(head);
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    scoreSpan.textContent = score.toString();
+    generateFood();
+  } else {
+    snake.pop();
+  }
+}
+
+function draw(): void {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = '#0f0';
+  snake.forEach(seg => {
+    ctx.fillRect(seg.x * gridSize, seg.y * gridSize, gridSize - 1, gridSize - 1);
+  });
+
+  ctx.fillStyle = '#f00';
+  ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 1, gridSize - 1);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '16px sans-serif';
+  ctx.fillText(`Score: ${score}`, 10, 20);
+}
+
+function loop(timestamp: number): void {
+  const delta = timestamp - lastRender;
+  if (delta >= 100) {
+    lastRender = timestamp;
+    update();
+  }
+  draw();
+  if (!gameOver) {
+    requestAnimationFrame(loop);
+  } else {
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px sans-serif';
+    ctx.fillText('Game Over', width / 2 - 50, height / 2);
+    ctx.fillText(`Final Score: ${score}`, width / 2 - 70, height / 2 + 30);
+  }
+}
+
+canvas.width = 400;
+canvas.height = 400;
+generateFood();
+requestAnimationFrame(loop);
+
+window.addEventListener('keydown', (e: KeyboardEvent) => {
+  switch (e.key) {
+    case 'ArrowUp':
+      if (direction.y !== 0) nextDirection = { x: 0, y: -1 };
+      break;
+    case 'ArrowDown':
+      if (direction.y !== 0) nextDirection = { x: 0, y: 1 };
+      break;
+    case 'ArrowLeft':
+      if (direction.x !== 0) nextDirection = { x: -1, y: 0 };
+      break;
+    case 'ArrowRight':
+      if (direction.x !== 0) nextDirection = { x: 1, y: 0 };
+      break;
+  }
+});

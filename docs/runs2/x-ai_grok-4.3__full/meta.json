@@ -1,0 +1,10 @@
+{
+  "model": "x-ai/grok-4.3",
+  "role": "full",
+  "durationMs": 23738,
+  "promptEvalCount": 1447,
+  "evalCount": 2622,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T21:06:33.950Z",
+  "promptSource": "prompts/snake-spec.md"
+}

@@ -1,0 +1,616 @@
+The user wants me to fix a TypeScript Snake game that has compilation errors under `--strict` mode.
+The specific errors are `TS18047: 'ctx' is possibly 'null'` inside the `draw` function.
+
+Looking at the provided code:
+1.  `ctx` is initialized as `canvas.getContext('2d')`.
+2.  There is a check: `if (!canvas || !ctx || !scoreElement) { throw ... }`.
+3.  However, TypeScript's control flow analysis in strict mode sometimes loses track of null checks across function boundaries or in complex scenarios, or specifically, the error `TS18047` often relates to "Unreachable code detected" or "Variable is used before being assigned" or "Object is possibly null/undefined". Wait, TS18047 is actually "Unreachable code detected" in older versions, but looking up TS18047 in recent TS versions... actually, TS18047 is usually related to code flow analysis or strict null checks in specific contexts.
+    *Correction*: TS18047 is "Variable 'x' is used before being assigned" or similar? No, let's look at the error message provided: `error TS18047: 'ctx' is possibly 'null'.`
+    Actually, TS18047 isn't the standard error code for "possibly null" (that's usually TS2531 or TS18048/TS18047 depending on version specifics regarding control flow).
+    Wait, TS18047 is often "Unreachable code detected". Let me double-check standard TS error codes.
+    TS2531: Object is possibly 'null'.
+    TS18047: This code is unreachable.
+    
+    Let's look at the provided error log again.
+    `runs/glm-5_cloud__full__retry1/snake.ts(126,5): error TS18047: 'ctx' is possibly 'null'.`
+    This looks like a specific error code for strict null checks in the version of TS used by the automated tester, or perhaps the user meant TS18048 ("'ctx' is possibly 'null'").
+    Regardless of the specific error code number, the issue is clear: TypeScript thinks `ctx` might be null inside `draw()`.
+
+    Why does it think that?
+    `ctx` is declared as `let ctx = ...`.
+    It is checked in the global scope: `if (!canvas || !ctx || !scoreElement) { throw ... }`.
+    However, `ctx` is typed as `CanvasRenderingContext2D | null`.
+    Even after the check, inside functions called later (like `draw`), TypeScript's flow analysis might not propagate the "definitely assigned" status of a global variable if it's not declared as a definite assignment assertion or if the compiler assumes it could change.
+    Actually, the standard way to fix this in strict mode for global variables is:
+    1.  Use non-null assertion operator `!` where used (e.g., `ctx!.fillStyle`).
+    2.  Or, restructure the code so `ctx` is definitely not null.
+    3.  Or, inside the functions, add a local check or assertion.
+
+    The cleanest way to satisfy strict null checks for global variables initialized once and checked at startup is to use the non-null assertion operator `!` on usage, or better yet, define the types explicitly and use a definite assignment assertion `!` on the declaration if we are sure it's initialized before use (though here it's initialized immediately).
+    
+    Let's look at the declaration:
+    `const ctx = canvas ? canvas.getContext('2d') : null;`
+    Type: `CanvasRenderingContext2D | null`.
+    
+    The check:
+    `if (!canvas || !ctx || !scoreElement) { throw ... }`
+    
+    If the check passes, `ctx` is definitely not null *at that point*.
+    However, inside `draw()`, which is a function, TS analyzes the function body. It sees `ctx` has type `CanvasRenderingContext2D | null`. It doesn't "remember" the runtime check performed in the global scope prior to the function definition because global variables *could* theoretically be modified (though not here). Or simply because control flow analysis doesn't cross function boundaries for global variables in that way.
+    
+    To fix this, I should change the type of `ctx` or use assertions.
+    Since `ctx` is a `const`, TS knows it won't change. But the type inferred is still `... | null`.
+    
+    The best fix is to use a Type Assertion or Non-null assertion.
+    Option A: `ctx!.fillStyle` everywhere. (A bit noisy).
+    Option B: Change the initialization logic.
+    
+    Better approach:
+    ```typescript
+    // ...
+    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d'); // This can still be null
+    // ...
+    if (!ctx) throw new Error("...");
+    // Now TS knows ctx is not null in the global scope.
+    // But inside functions, it might still complain if it thinks the type is nullable.
+    ```
+    Actually, if I do:
+    ```typescript
+    const ctx = canvas.getContext('2d')!;
+    ```
+    Then `ctx` is typed as `CanvasRenderingContext2D` (not null). The `!` tells TS "I promise this isn't null". Since we check `canvas` existence (or assume it based on the prompt context), and `getContext('2d')` is standard, this is usually safe.
+    
+    However, the original code had a check block:
+    ```typescript
+    if (!canvas || !ctx || !scoreElement) {
+        throw new Error("...");
+    }
+    ```
+    If I use `!` at initialization, the check becomes redundant for `ctx`'s type, but good for runtime safety if `canvas` is null.
+    
+    Let's try to keep the code robust.
+    
+    Revised initialization:
+    ```typescript
+    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+    const ctx = canvas ? canvas.getContext('2d') : null;
+    const scoreElement = document.getElementById('score');
+
+    if (!canvas || !ctx || !scoreElement) {
+        throw new Error("Failed to initialize game elements. Check HTML IDs.");
+    }
+    ```
+    Even with this, inside `draw()`, `ctx` is accessed. TS sees `ctx` declared as `CanvasRenderingContext2D | null`. The `if` block narrows it to `CanvasRenderingContext2D` *in the scope where the check happens*. But `draw` is a separate function scope. TS does not assume global state remains constant (even for consts, though it should).
+    
+    Wait, if `ctx` is a `const`, TS *should* narrow it.
+    Let's verify TS behavior.
+    ```typescript
+    let x: string | null = null;
+    if (!x) throw "";
+    function f() { x.toLowerCase(); } // Error: x is possibly null.
+    ```
+    Yes, TS does not narrow types of variables captured in closures or global scope based on runtime checks performed outside, because the check might have happened "a long time ago" or conditions changed (though `const` prevents reassignment, TS is conservative here or used to be).
+    
+    Actually, TS 4.x+ *does* narrow `const` variables if they are never reassigned.
+    Let's check why the error occurred in the prompt's scenario.
+    The prompt code:
+    ```typescript
+    const ctx = canvas ? canvas.getContext('2d') : null;
+    // ...
+    if (!canvas || !ctx || !scoreElement) { ... }
+    ```
+    If `ctx` is `const`, TS *should* know it's not null after the check.
+    However, the error log says: `error TS18047: 'ctx' is possibly 'null'.`
+    This suggests that the specific TS version or configuration used by the tester does *not* narrow the type of `ctx` inside `draw()`.
+    
+    To be absolutely safe and fix the error, I will use the non-null assertion operator `!` on the `ctx` usages inside the functions, OR better, cast it once.
+    
+    Actually, the cleanest way to handle this in strict TS without `!` everywhere is:
+    ```typescript
+    // inside draw()
+    if (!ctx) return; // redundant but satisfies compiler
+    // OR
+    ```
+    But since I want to emit clean code, I will use the non-null assertion `!` on the variable declaration if I am confident, or just use it at usage sites.
+    
+    Let's look at the specific error lines in the prompt:
+    Lines 126, 127, 130, 131, 134, 136, 141.
+    These correspond to `ctx.fillStyle`, `ctx.fillRect`, etc.
+    
+    The fix:
+    I will change the declaration of `ctx` to use the non-null assertion operator if I'm sure it exists, OR I will keep the check and use `ctx!` inside the functions.
+    
+    Actually, a very common pattern is:
+    ```typescript
+    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!; // Assert non-null immediately
+    ```
+    This makes `ctx` type `CanvasRenderingContext2D`.
+    Then the `if (!ctx)` check is technically redundant for the compiler but good for runtime if we want to handle the case where `canvas` was null (which we casted).
+    
+    Let's refine the initialization block to be strictly correct and robust.
+    
+    ```typescript
+    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+    const scoreElement = document.getElementById('score');
+    
+    if (!canvas || !scoreElement) {
+        throw new Error("Failed to initialize game elements.");
+    }
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        throw new Error("Could not get 2D context.");
+    }
+    ```
+    If I do this:
+    `canvas` is `HTMLCanvasElement` (narrowed).
+    `ctx` is `CanvasRenderingContext2D` (narrowed).
+    Since they are `const`, TS *should* propagate this.
+    
+    However, if the automated tester is complaining, it might be that the variables are defined globally, and functions access them. TS flow analysis for globals is tricky.
+    If I declare them inside an `init` or main scope, it works better, but the code structure uses globals.
+    
+    If I stick to globals:
+    The most reliable fix for "possibly null" errors on globals in functions is the non-null assertion operator `!`.
+    
+    Let's look at the provided code again.
+    `const ctx = canvas ? canvas.getContext('2d') : null;`
+    Type: `CanvasRenderingContext2D | null`.
+    
+    I will modify the code to use `ctx!.fillStyle` etc., or simpler:
+    I will declare `ctx` with a definite assignment assertion if I can't initialize it immediately, but here I can.
+    
+    Let's try the approach where we assert non-null on the declaration line if we verify the element exists.
+    
+    ```typescript
+    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+    const scoreElement = document.getElementById('score');
+    
+    if (!canvas || !scoreElement) {
+        throw new Error("...");
+    }
+    
+    const ctx = canvas.getContext('2d')!; // We know canvas exists, and 2d context is standard.
+    ```
+    By doing `getContext('2d')!`, `ctx` becomes type `CanvasRenderingContext2D`.
+    This removes `null` from its type.
+    Consequently, inside `draw()`, `ctx` is not null.
+    This should fix the TS errors.
+    
+    Wait, `getContext('2d')` can technically return null (e.g. if the context ID is invalid, but '2d' is valid, or if the canvas is tainted, though usually not null for 2d). But for the sake of the compiler, `!` is acceptable here given the constraints.
+    
+    Let's verify the constraints.
+    - `snake.ts` must compile cleanly with `tsc --target ES2022 --module ES2022 --strict`.
+    - No type errors.
+    
+    So, the plan:
+    1.  Keep HTML mostly the same.
+    2.  In `snake.ts`:
+        - Fix the `ctx` type issue by asserting non-null on initialization or handling the check such that the type is narrowed permanently.
+        - Since `ctx` is global, narrowing inside an `if` block in the global scope might not persist into function scopes for all TS versions/configurations (specifically `strictNullChecks`).
+        - The safest bet that guarantees compilation is ensuring the declared type of `ctx` does not include `null`.
+    
+    Code change:
+    ```typescript
+    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+    const scoreElement = document.getElementById('score');
+    
+    if (!canvas || !scoreElement) {
+        throw new Error("Failed to initialize game elements. Check HTML IDs.");
+    }
+    
+    const ctx = canvas.getContext('2d')!; // Assert non-null
+    ```
+    
+    Wait, if `canvas` is null, the previous line throws. So `canvas` is not null.
+    `canvas.getContext('2d')` returns `CanvasRenderingContext2D | null`.
+    Using `!` makes it `CanvasRenderingContext2D`.
+    
+    Is there any other error?
+    The prompt mentions `TS18047`.
+    Let's double check if there are other strict issues.
+    `snake` array: initialized in `initGame`.
+    `food`: initialized in `initGame`.
+    `direction`: initialized.
+    `score`: initialized.
+    
+    Variables `snake`, `food`, `direction`, `score`, `isGameOver`, `gameInterval` are declared globally.
+    `let snake: Point[] = [];` -> initialized.
+    `let food: Point = { x: 0, y: 0 };` -> initialized.
+    `let direction: Direction = 'RIGHT';` -> initialized.
+    `let score: number = 0;` -> initialized.
+    `let isGameOver: boolean = false;` -> initialized.
+    `let gameInterval: number = 0;` -> initialized.
+    
+    `gameInterval` is used in `clearInterval`. `window.setInterval` returns a number.
+    
+    One potential issue: `gameInterval` type.
+    `window.setInterval` returns `number`.
+    `window.clearInterval` accepts `number`.
+    This is correct for browser environments (not Node where it returns an object).
+    
+    Another potential issue: `scoreElement`.
+    `const scoreElement = document.getElementById('score');`
+    Type: `HTMLElement | null`.
+    Checked in the `if` block.
+    Usage in `updateScoreDisplay`: `scoreElement.innerText = ...`.
+    Same problem as `ctx`. TS might think it's null inside the function.
+    So I should fix `scoreElement` type too.
+    
+    Revised initialization:
+    ```typescript
+    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+    const scoreElement = document.getElementById('score');
+    
+    if (!canvas || !scoreElement) {
+        throw new Error("Failed to initialize game elements. Check HTML IDs.");
+    }
+    
+    const ctx = canvas.getContext('2d')!; 
+    // scoreElement is narrowed to HTMLElement in this block, but globally?
+    // To be safe, I should cast or assert.
+    ```
+    
+    Better:
+    ```typescript
+    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const scoreElement = document.getElementById('score')!;
+    
+    // Validation check (optional now, but good for runtime)
+    if (!canvas || !ctx || !scoreElement) {
+        // This block is technically unreachable if assertions hold, but we can keep logic.
+        // Actually, if we use '!', we are telling TS "trust me". 
+        // If the element doesn't exist, JS will throw at runtime before TS catches it (in JS execution).
+        // TS is happy.
+    }
+    ```
+    
+    Wait, `document.getElementById` returns `HTMLElement | null`.
+    `as HTMLCanvasElement` casts it. If it's null, it's null casted to HTMLCanvasElement.
+    Accessing `getContext` on null would crash.
+    So:
+    ```typescript
+    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
+    if (!canvas) throw new Error("Canvas not found");
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error("Context not found");
+    
+    const scoreElement = document.getElementById('score');
+    if (!scoreElement) throw new Error("Score element not found");
+    ```
+    If I do this, `canvas`, `ctx`, and `scoreElement` are narrowed to non-null types *within the global scope execution flow*.
+    However, as discussed, TS might not preserve this narrowing for global variables accessed inside functions.
+    
+    The most robust way to satisfy `strictNullChecks` for globals used in functions is to type them as non-nullable and use the non-null assertion `!` on the assignment.
+    
+    ```typescript
+    const canvas = document.getElementById('gameCanvas')! as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const scoreElement = document.getElementById('score')!;
+    ```
+    This tells TS: "I guarantee these exist".
+    Then `canvas` is `HTMLCanvasElement`.
+    `ctx` is `CanvasRenderingContext2D`.
+    `scoreElement` is `HTMLElement`.
+    No nulls in types.
+    No errors in functions.
+    
+    This is the standard "quick fix" for strict DOM element retrieval in TS.
+    
+    Let's check other constraints.
+    - `snake.ts` must compile with `tsc --target ES2022 --module ES2022 --strict`.
+    - `strictPropertyInitialization`: No classes used, so not relevant for properties. Variables are initialized.
+    - `noImplicitAny`: All types are defined or inferred.
+    
+    One detail: `gameInterval`.
+    `let gameInterval: number = 0;`
+    `gameInterval = window.setInterval(...)`
+    `window.clearInterval(gameInterval)`
+    This works.
+    
+    One detail: `handleKeyDown` types.
+    `e: KeyboardEvent`. Correct.
+    
+    One detail: `Point` interface. Correct.
+    
+    One detail: `Direction` type. Correct.
+    
+    One detail: `initGame` calls `placeFood`. `placeFood` uses `snake` and `food`. `snake` is initialized. `food` is initialized.
+    
+    One detail: `placeFood` logic.
+    `while (true)` loop.
+    Checks if `onSnake`.
+    If `!onSnake`, sets `food` and breaks.
+    Is it possible to infinite loop? Only if snake fills the entire grid.
+    Grid size 20x20 = 400 tiles.
+    Snake starts with 3.
+    It's fine.
+    
+    One detail: `update` logic.
+    `const head: Point = { ...snake[0] };`
+    `snake[0]` is safe because `snake` is initialized with 3 items and never empty (it grows or moves).
+    
+    One detail: `draw` logic.
+    `ctx.fillStyle`, `ctx.fillRect`.
+    Fixed by `ctx` type assertion.
+    
+    One detail: `scoreElement`.
+    `scoreElement.innerText`.
+    Fixed by `scoreElement` type assertion.
+    
+    One detail: `window.setInterval` return type.
+    In `lib.dom.d.ts`, `setInterval` returns `number`.
+    So `gameInterval: number` is correct.
+    
+    One detail: `window.clearInterval`.
+    Accepts `number`.
+    
+    One detail: `window.addEventListener`.
+    Correct.
+    
+    One detail: `document.getElementById('score')`.
+    Returns `HTMLElement | null`.
+    `innerText` exists on `HTMLElement`.
+    
+    One detail: `canvas` casting.
+    `document.getElementById('gameCanvas')` returns `HTMLElement | null`.
+    `as HTMLCanvasElement` is needed to access `getContext`.
+    So: `const canvas = document.getElementById('gameCanvas')! as HTMLCanvasElement;`
+    
+    Let's assemble the fixed code.
+    
+    HTML file:
+    Needs to be exactly as provided, just ensuring it matches the TS expectations.
+    `<script src="snake.js" defer></script>` is required.
+    
+    TS file:
+    Fix the initialization of `canvas`, `ctx`, `scoreElement`.
+    
+    ```typescript
+    // snake.ts
+
+    // Constants
+    const GRID_SIZE = 20;
+    const CANVAS_WIDTH = 400;
+    const CANVAS_HEIGHT = 400;
+    const TILE_COUNT = CANVAS_WIDTH / GRID_SIZE;
+    const GAME_SPEED = 100; // Milliseconds per frame
+
+    // Types
+    interface Point {
+        x: number;
+        y: number;
+    }
+
+    type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
+
+    // Game State
+    let snake: Point[] = [];
+    let food: Point = { x: 0, y: 0 };
+    let direction: Direction = 'RIGHT';
+    let nextDirection: Direction = 'RIGHT';
+    let score: number = 0;
+    let isGameOver: boolean = false;
+    let gameInterval: number = 0;
+
+    // DOM Elements
+    // Using non-null assertions '!' to satisfy strictNullChecks for global variables used in functions.
+    // We assume the HTML structure is correct as per the problem description.
+    const canvas = document.getElementById('gameCanvas')! as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const scoreElement = document.getElementById('score')!;
+
+    /**
+     * Initializes the game state and starts the game loop.
+     */
+    function initGame(): void {
+        snake = [
+            { x: 10, y: 10 },
+            { x: 9, y: 10 },
+            { x: 8, y: 10 }
+        ];
+        direction = 'RIGHT';
+        nextDirection = 'RIGHT';
+        score = 0;
+        isGameOver = false;
+        
+        updateScoreDisplay();
+        placeFood();
+        
+        if (gameInterval) {
+            window.clearInterval(gameInterval);
+        }
+        gameInterval = window.setInterval(gameLoop, GAME_SPEED);
+    }
+
+    /**
+     * The main game loop called at regular intervals.
+     */
+    function gameLoop(): void {
+        if (isGameOver) {
+            return;
+        }
+        
+        update();
+        draw();
+    }
+
+    /**
+     * Updates the game state (movement, collisions).
+     */
+    function update(): void {
+        direction = nextDirection;
+
+        const head: Point = { ...snake[0] };
+
+        switch (direction) {
+            case 'UP':
+                head.y -= 1;
+                break;
+            case 'DOWN':
+                head.y += 1;
+                break;
+            case 'LEFT':
+                head.x -= 1;
+                break;
+            case 'RIGHT':
+                head.x += 1;
+                break;
+        }
+
+        // Wall Collision
+        if (head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT) {
+            endGame();
+            return;
+        }
+
+        // Self Collision
+        for (const segment of snake) {
+            if (head.x === segment.x && head.y === segment.y) {
+                endGame();
+                return;
+            }
+        }
+
+        snake.unshift(head);
+
+        // Food Collision
+        if (head.x === food.x && head.y === food.y) {
+            score += 10;
+            updateScoreDisplay();
+            placeFood();
+        } else {
+            snake.pop();
+        }
+    }
+
+    /**
+     * Renders the game to the canvas.
+     */
+    function draw(): void {
+        // Clear Canvas
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        // Draw Food
+        ctx.fillStyle = 'red';
+        ctx.fillRect(food.x * GRID_SIZE, food.y * GRID_SIZE, GRID_SIZE - 2, GRID_SIZE - 2);
+
+        // Draw Snake
+        ctx.fillStyle = '#00FF00';
+        for (const segment of snake) {
+            ctx.fillRect(segment.x * GRID_SIZE, segment.y * GRID_SIZE, GRID_SIZE - 2, GRID_SIZE - 2);
+        }
+
+        // Draw Game Over text
+        if (isGameOver) {
+            ctx.fillStyle = 'white';
+            ctx.font = '30px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Game Over', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+        }
+    }
+
+    /**
+     * Places food at a random position not occupied by the snake.
+     */
+    function placeFood(): void {
+        while (true) {
+            const x = Math.floor(Math.random() * TILE_COUNT);
+            const y = Math.floor(Math.random() * TILE_COUNT);
+
+            let onSnake = false;
+            for (const segment of snake) {
+                if (segment.x === x && segment.y === y) {
+                    onSnake = true;
+                    break;
+                }
+            }
+
+            if (!onSnake) {
+                food = { x, y };
+                break;
+            }
+        }
+    }
+
+    /**
+     * Updates the score display in the DOM.
+     */
+    function updateScoreDisplay(): void {
+        scoreElement.innerText = score.toString();
+    }
+
+    /**
+     * Handles the Game Over state.
+     */
+    function endGame(): void {
+        isGameOver = true;
+        draw(); // Draw one last time to show the collision state and Game Over text
+    }
+
+    /**
+     * Handles keyboard input.
+     */
+    function handleKeyDown(e: KeyboardEvent): void {
+        const key: string = e.key;
+
+        if (key === 'ArrowUp' && direction !== 'DOWN') {
+            nextDirection = 'UP';
+        } else if (key === 'ArrowDown' && direction !== 'UP') {
+            nextDirection = 'DOWN';
+        } else if (key === 'ArrowLeft' && direction !== 'RIGHT') {
+            nextDirection = 'LEFT';
+        } else if (key === 'ArrowRight' && direction !== 'LEFT') {
+            nextDirection = 'RIGHT';
+        }
+    }
+
+    // Setup input listener
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Start the game
+    initGame();
+    ```
+
+    Double check `strict` compliance.
+    - `canvas` is `HTMLCanvasElement`.
+    - `ctx` is `CanvasRenderingContext2D`.
+    - `scoreElement` is `HTMLElement`.
+    - No null checks needed in functions.
+    - `gameInterval` is `number`.
+    - `snake` is `Point[]`.
+    - `food` is `Point`.
+    - `direction` is `Direction`.
+    - `score` is `number`.
+    - `isGameOver` is `boolean`.
+    
+    All variables are initialized.
+    All types are explicit or inferred correctly.
+    No implicit `any`.
+    
+    The error `TS18047` in the prompt log specifically pointed to `ctx` being possibly null. By asserting `!` on `getContext('2d')`, `ctx` is no longer possibly null.
+    
+    One small thing: `document.getElementById('score')` returns `HTMLElement | null`.
+    `scoreElement.innerText` works on `HTMLElement`.
+    If I use `!`, it becomes `HTMLElement`.
+    
+    The HTML file:
+    The prompt says "Two files: index.html and snake.ts".
+    The HTML provided in the prompt is correct, I just need to output it again.
+    Wait, the prompt says "Fix every problem".
+    The HTML didn't have problems, but I must re-emit it.
+    
+    Wait, I should check if `document.getElementById('score')` returns `HTMLElement` or `HTMLSpanElement`.
+    It returns `HTMLElement` (or `null`). `span` is an `HTMLElement`. `innerText` is on `HTMLElement`. So it's fine.
+    
+    One final check on `gameInterval`.
+    `let gameInterval: number = 0;`
+    `gameInterval = window.setInterval(...)`
+    `window.clearInterval(gameInterval)`
+    This is correct.
+    
+    The code looks solid.

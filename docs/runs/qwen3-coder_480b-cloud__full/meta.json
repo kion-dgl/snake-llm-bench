@@ -1,0 +1,9 @@
+{
+  "model": "qwen3-coder:480b-cloud",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 128136,
+  "promptEvalCount": 183,
+  "evalCount": 1434,
+  "timestamp": "2026-05-11T12:58:14.948Z"
+}

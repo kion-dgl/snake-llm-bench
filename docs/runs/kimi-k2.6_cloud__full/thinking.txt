@@ -1,0 +1,615 @@
+The user wants a Snake game implemented in vanilla TypeScript + HTML5 Canvas. No frameworks, no build tools beyond `tsc`. Two files: `index.html` and `snake.ts`. The HTML must load compiled JS via `<script src="snake.js" defer></script>`. `snake.ts` must compile cleanly with `tsc --target ES2022 --module ES2022 --strict`. Arrow keys to control. Visible score. Game-over on wall or self collision. The page must contain the literal word "Score" somewhere visible. Do not import anything. Browser globals only.
+
+Output exactly two fenced code blocks, in this order, nothing else.
+
+Let's design the game.
+
+HTML:
+- Basic HTML5 structure.
+- Canvas element.
+- A div or span showing "Score: 0". Must contain literal word "Score".
+- Script tag with defer loading snake.js.
+
+TypeScript:
+- Strict mode, no implicit any.
+- Use browser globals: window, document, canvas context, requestAnimationFrame, etc.
+- No imports.
+
+Game logic:
+- Grid-based snake. Let's define tile size, grid width/height.
+- Snake: array of {x, y} segments.
+- Direction: dx, dy. Prevent reversing directly.
+- Food: random position not on snake.
+- Score: increments when eating food.
+- Game loop: use requestAnimationFrame with a time step (e.g., move every 100ms).
+- Drawing: clear canvas, draw food, draw snake.
+- Input: keydown for arrow keys.
+- Game over: wall collision or self collision. Show message and maybe allow restart (e.g., alert or click/space). The prompt doesn't specify restart mechanism, but a simple location.reload() or a game over screen with a restart option is good. Let's keep it simple: alert "Game Over! Score: X" and then reset. Or just draw "Game Over" on canvas and wait for a key press to restart. Let's do a simple reset after alert, or better, just stop the loop and show a message on canvas. To keep it clean, I'll implement a reset function and on game over show an alert and reset. Actually alert blocks the thread. Better: draw "Game Over" on canvas and allow pressing Space to restart. But the prompt only says arrow keys to control. It doesn't forbid other keys. Let's add a simple game over state and render text. And maybe auto-restart after a delay or click. Let's do: on game over, set a flag, draw "Game Over" and "Press Space to Restart". That adds a nice touch. But to keep it minimal and fully compliant, maybe just an alert and reset. However, alert is ugly. Let's do a game over screen on canvas. Since we need to handle keydown, we can listen for Space.
+
+Let's structure the code:
+
+Constants:
+- CANVAS_WIDTH = 400;
+- CANVAS_HEIGHT = 400;
+- TILE_SIZE = 20;
+- GRID_WIDTH = CANVAS_WIDTH / TILE_SIZE;
+- GRID_HEIGHT = CANVAS_HEIGHT / TILE_SIZE;
+- GAME_SPEED = 100; // ms per move
+
+State:
+- snake: Array<{x: number, y: number}>
+- food: {x: number, y: number}
+- dx: number, dy: number
+- nextDx: number, nextDy: number (to prevent multiple turns in one frame)
+- score: number
+- lastTime: number
+- gameOver: boolean
+- running: boolean
+
+Functions:
+- init(): reset state, place food, start loop.
+- placeFood(): random position not on snake.
+- update(timestamp: number): if gameOver return. If timestamp - lastTime > GAME_SPEED, then move.
+- move(): calculate new head. Check wall collision (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT). Check self collision (snake.some(...)). If collision, gameOver = true. Else, add head. If head == food, score++, placeFood(). Else pop tail. Set dx = nextDx, dy = nextDy.
+- draw(): clear rect. Draw food (red). Draw snake (green). If gameOver, draw "Game Over" and maybe "Press Space to Restart". Also update DOM score element.
+- gameLoop(timestamp: number): update(timestamp); draw(); requestAnimationFrame(gameLoop).
+- handleInput(e: KeyboardEvent): switch arrow keys. Set nextDx/nextDy if not opposite of current direction. If gameOver and e.code === 'Space', init().
+
+DOMContentLoaded:
+- get canvas, context, score element.
+- init().
+- addEventListener keydown.
+
+Wait, the prompt says "Arrow keys to control". It doesn't mention space to restart, but it's fine. However, to be absolutely safe and minimal, maybe just reload the page on game over? No, that's bad UX. Let's just draw "Game Over" on canvas and stop. But then the user can't play again without refreshing. The prompt doesn't require restart. So I can just stop and show "Game Over". But it's nicer to allow restart. I'll add a small note in canvas: "Game Over". No restart. Or maybe just reset after a timeout. Let's just do: on game over, draw "Game Over" and "Refresh to restart". That's simple and doesn't require extra key handling beyond arrows. But handling Space is trivial and doesn't violate anything. I'll include Space to restart.
+
+Let's check strict TypeScript compilation.
+
+Need to type everything.
+
+```typescript
+const canvas = document.getElementById("game") as HTMLCanvasElement;
+const ctx = canvas.getContext("2d")!;
+const scoreEl = document.getElementById("score") as HTMLSpanElement;
+```
+
+Wait, `getContext("2d")` returns `CanvasRenderingContext2D | null`. With strict mode, we need to handle null or use non-null assertion if we are sure. I'll use `if (!ctx) throw new Error("...");` to be safe, or just `as CanvasRenderingContext2D`. Better to check.
+
+```typescript
+const ctx = canvas.getContext("2d");
+if (!ctx) throw new Error("Could not get 2D context");
+```
+
+Types for snake segments:
+```typescript
+type Point = { x: number; y: number };
+let snake: Point[] = [];
+let food: Point = { x: 0, y: 0 };
+```
+
+Directions:
+```typescript
+let dx = 1, dy = 0;
+let nextDx = 1, nextDy = 0;
+```
+
+Game loop timing:
+Use `requestAnimationFrame`. Track `let lastTime = 0;` but since the first call might have timestamp 0 or high. Let's initialize `let lastTime = 0;` and in update, if `lastTime === 0`, set it to timestamp. Or use `setInterval`? No, requestAnimationFrame is better. But for a grid game, a simple time accumulator is good.
+
+```typescript
+const MOVE_INTERVAL = 100;
+let accumulator = 0;
+let lastTimestamp = 0;
+
+function loop(timestamp: number): void {
+  if (!lastTimestamp) lastTimestamp = timestamp;
+  const delta = timestamp - lastTimestamp;
+  lastTimestamp = timestamp;
+  accumulator += delta;
+  while (accumulator >= MOVE_INTERVAL) {
+    if (!gameOver) move();
+    accumulator -= MOVE_INTERVAL;
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+```
+
+This is a fixed time step loop. Good.
+
+Collision detection:
+Wall: `head.x < 0 || head.x >= GRID_WIDTH || head.y < 0 || head.y >= GRID_HEIGHT`
+Self: `snake.some((seg, i) => i > 0 && seg.x === head.x && seg.y === head.y)` but since we add head after check, we check against current snake body. Actually new head is not in snake yet. So `snake.some(seg => seg.x === head.x && seg.y === head.y)` is fine.
+
+Food placement:
+```typescript
+function placeFood(): void {
+  let x: number, y: number;
+  do {
+    x = Math.floor(Math.random() * GRID_WIDTH);
+    y = Math.floor(Math.random() * GRID_HEIGHT);
+  } while (snake.some(seg => seg.x === x && seg.y === y));
+  food = { x, y };
+}
+```
+
+Drawing:
+```typescript
+function draw(): void {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.fillStyle = "#f00";
+  ctx.fillRect(food.x * TILE_SIZE, food.y * TILE_SIZE, TILE_SIZE - 2, TILE_SIZE - 2);
+  
+  ctx.fillStyle = "#0f0";
+  for (const seg of snake) {
+    ctx.fillRect(seg.x * TILE_SIZE, seg.y * TILE_SIZE, TILE_SIZE - 2, TILE_SIZE - 2);
+  }
+  
+  if (gameOver) {
+    ctx.fillStyle = "#fff";
+    ctx.font = "30px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2);
+  }
+  
+  scoreEl.textContent = String(score);
+}
+```
+
+Wait, the prompt says "The page must contain the literal word 'Score' somewhere visible." So in HTML, I should have something like `<div>Score: <span id="score">0</span></div>`. That satisfies it.
+
+Input handling:
+Prevent reversing.
+```typescript
+window.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (gameOver) {
+    if (e.key === " ") {
+      reset();
+    }
+    return;
+  }
+  switch (e.key) {
+    case "ArrowUp":
+      if (dy === 0) { nextDx = 0; nextDy = -1; }
+      break;
+    case "ArrowDown":
+      if (dy === 0) { nextDx = 0; nextDy = 1; }
+      break;
+    case "ArrowLeft":
+      if (dx === 0) { nextDx = -1; nextDy = 0; }
+      break;
+    case "ArrowRight":
+      if (dx === 0) { nextDx = 1; nextDy = 0; }
+      break;
+  }
+});
+```
+
+But note: `dx` and `dy` are the current direction for the current frame. However, if the user presses two keys between two moves, we only want the last valid one. Using `nextDx/nextDy` and applying at move time is correct. But the check `if (dy === 0)` uses the *current* `dy`, not `nextDy`. This is standard: you can't reverse direction, but you can turn from up to left then down in quick succession? Actually if you're moving up (dy=-1), you can't press down. If you press left, nextDx=-1, nextDy=0. Then if you press down immediately, `dy` is still -1 (current move hasn't happened yet), so `dy === 0` is false, and down is rejected. That's correct because you can't reverse from up to down even via a queued turn. But some implementations allow it if you queue left then down. However, standard snake usually just ignores invalid keys. This is fine.
+
+Wait, if I use `dx` and `dy` (current direction) in the key handler, and the move hasn't happened yet, it's okay. But what if I want to allow a turn on the next tick? The `nextDx/nextDy` handles the queued direction. The check against `dx/dy` prevents 180-degree turns. Good.
+
+One subtlety: if snake length is 1, reversing should maybe be allowed? But usually not. It's fine.
+
+Initialization:
+```typescript
+function reset(): void {
+  snake = [{ x: 10, y: 10 }];
+  dx = 1; dy = 0;
+  nextDx = 1; nextDy = 0;
+  score = 0;
+  gameOver = false;
+  accumulator = 0;
+  lastTimestamp = 0;
+  placeFood();
+}
+```
+
+Move function:
+```typescript
+function move(): void {
+  dx = nextDx;
+  dy = nextDy;
+  const head = snake[0];
+  const newHead: Point = { x: head.x + dx, y: head.y + dy };
+  
+  if (newHead.x < 0 || newHead.x >= GRID_WIDTH || newHead.y < 0 || newHead.y >= GRID_HEIGHT) {
+    gameOver = true;
+    return;
+  }
+  
+  if (snake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
+    gameOver = true;
+    return;
+  }
+  
+  snake.unshift(newHead);
+  if (newHead.x === food.x && newHead.y === food.y) {
+    score += 10; // or 1
+    placeFood();
+  } else {
+    snake.pop();
+  }
+}
+```
+
+Score increment: usually 1 per food. Let's do `score += 1`.
+
+Let's ensure all variables are typed.
+
+```typescript
+const TILE_SIZE = 20;
+const GRID_WIDTH = 20;
+const GRID_HEIGHT = 20;
+const MOVE_INTERVAL = 100;
+
+const canvas = document.getElementById("game") as HTMLCanvasElement;
+const ctx = canvas.getContext("2d");
+if (!ctx) throw new Error("Canvas not supported");
+const scoreEl = document.getElementById("score") as HTMLSpanElement;
+
+type Point = { x: number; y: number };
+
+let snake: Point[] = [];
+let food: Point = { x: 0, y: 0 };
+let dx = 0;
+let dy = 0;
+let nextDx = 0;
+let nextDy = 0;
+let score = 0;
+let gameOver = false;
+let accumulator = 0;
+let lastTimestamp = 0;
+```
+
+Wait, `lastTimestamp` should be `number`. `accumulator` should be `number`.
+
+In the loop:
+```typescript
+function loop(timestamp: number): void {
+  if (lastTimestamp === 0) {
+    lastTimestamp = timestamp;
+  }
+  const delta = timestamp - lastTimestamp;
+  lastTimestamp = timestamp;
+  accumulator += delta;
+  
+  while (accumulator >= MOVE_INTERVAL) {
+    if (!gameOver) {
+      move();
+    }
+    accumulator -= MOVE_INTERVAL;
+  }
+  
+  draw();
+  requestAnimationFrame(loop);
+}
+```
+
+But if gameOver, we still want to draw. That's fine.
+
+One issue: if the tab is inactive, requestAnimationFrame pauses, and delta can be huge. The while loop would then run many moves at once. To cap it, we can do `if (accumulator > MOVE_INTERVAL * 5) accumulator = MOVE_INTERVAL;` or just let it be. For a simple game, it's okay. But to be safe, let's cap the accumulator.
+
+```typescript
+if (accumulator > MOVE_INTERVAL * 5) {
+  accumulator = MOVE_INTERVAL;
+}
+```
+
+Actually, simpler: just use a simple `setInterval` for game logic and `requestAnimationFrame` for drawing? No, the prompt doesn't require anything fancy. `setInterval` is simpler but less smooth. However, with strict TS and canvas, either is fine. Let's stick to rAF but cap accumulator.
+
+```typescript
+if (accumulator > MOVE_INTERVAL * 2) {
+  accumulator = MOVE_INTERVAL;
+}
+```
+
+Or just don't cap. It's a simple snake game. I'll leave it uncapped for simplicity, but maybe mention it's okay. Actually, if you switch tabs and come back, the snake might instantly die. So capping is good.
+
+```typescript
+if (accumulator > MOVE_INTERVAL * 3) {
+  accumulator = MOVE_INTERVAL;
+}
+```
+
+Let's just use a simple time check without while loop:
+
+```typescript
+let lastMoveTime = 0;
+function loop(timestamp: number): void {
+  if (timestamp - lastMoveTime >= MOVE_INTERVAL) {
+    if (!gameOver) move();
+    lastMoveTime = timestamp;
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+```
+
+This is simpler and avoids the tab-switching burst issue because `lastMoveTime` will just be updated to `timestamp`, causing at most one move immediately. Actually if timestamp jumps by 1000ms, then `timestamp - lastMoveTime >= 100` is true, we move once, set `lastMoveTime = timestamp`. So we lose some moves, but the game continues smoothly. This is perfectly fine for Snake. Let's use this. It's simpler and less error-prone.
+
+So:
+```typescript
+let lastMoveTime = 0;
+function gameLoop(timestamp: number): void {
+  if (!lastMoveTime) lastMoveTime = timestamp;
+  if (timestamp - lastMoveTime >= MOVE_INTERVAL) {
+    if (!gameOver) {
+      move();
+    }
+    lastMoveTime = timestamp;
+  }
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+```
+
+Wait, setting `lastMoveTime = timestamp` exactly might cause drift. Better: `lastMoveTime += MOVE_INTERVAL;`. But if the delta is huge, we might want to just set it to timestamp to avoid a cascade. For this game, `lastMoveTime = timestamp` is fine.
+
+Let's refine.
+
+HTML:
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #111;
+      color: #fff;
+      font-family: monospace;
+    }
+    canvas {
+      border: 2px solid #fff;
+      background: #000;
+    }
+    #score-board {
+      margin-bottom: 10px;
+      font-size: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="score-board">Score: <span id="score">0</span></div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+This contains the literal word "Score". Good.
+
+TypeScript file:
+Let's write it out fully.
+
+```typescript
+const TILE_SIZE = 20;
+const GRID_WIDTH = 20;
+const GRID_HEIGHT = 20;
+const MOVE_INTERVAL = 100;
+
+const canvas = document.getElementById("game") as HTMLCanvasElement;
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+  throw new Error("Unable to get 2D context");
+}
+const scoreEl = document.getElementById("score") as HTMLSpanElement;
+
+type Point = { x: number; y: number };
+
+let snake: Point[] = [];
+let food: Point = { x: 0, y: 0 };
+let dx = 1;
+let dy = 0;
+let nextDx = 1;
+let nextDy = 0;
+let score = 0;
+let gameOver = false;
+let lastMoveTime = 0;
+
+function placeFood(): void {
+  let x: number;
+  let y: number;
+  do {
+    x = Math.floor(Math.random() * GRID_WIDTH);
+    y = Math.floor(Math.random() * GRID_HEIGHT);
+  } while (snake.some((seg) => seg.x === x && seg.y === y));
+  food = { x, y };
+}
+
+function reset(): void {
+  snake = [{ x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) }];
+  dx = 1;
+  dy = 0;
+  nextDx = 1;
+  nextDy = 0;
+  score = 0;
+  gameOver = false;
+  lastMoveTime = 0;
+  placeFood();
+}
+
+function move(): void {
+  dx = nextDx;
+  dy = nextDy;
+  const head = snake[0];
+  const newHead: Point = { x: head.x + dx, y: head.y + dy };
+
+  if (
+    newHead.x < 0 ||
+    newHead.x >= GRID_WIDTH ||
+    newHead.y < 0 ||
+    newHead.y >= GRID_HEIGHT
+  ) {
+    gameOver = true;
+    return;
+  }
+
+  if (snake.some((seg) => seg.x === newHead.x && seg.y === newHead.y)) {
+    gameOver = true;
+    return;
+  }
+
+  snake.unshift(newHead);
+
+  if (newHead.x === food.x && newHead.y === food.y) {
+    score += 1;
+    placeFood();
+  } else {
+    snake.pop();
+  }
+}
+
+function draw(): void {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#e74c3c";
+  ctx.fillRect(
+    food.x * TILE_SIZE,
+    food.y * TILE_SIZE,
+    TILE_SIZE - 2,
+    TILE_SIZE - 2
+  );
+
+  ctx.fillStyle = "#2ecc71";
+  for (const seg of snake) {
+    ctx.fillRect(
+      seg.x * TILE_SIZE,
+      seg.y * TILE_SIZE,
+      TILE_SIZE - 2,
+      TILE_SIZE - 2
+    );
+  }
+
+  if (gameOver) {
+    ctx.fillStyle = "#fff";
+    ctx.font = "30px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2);
+  }
+
+  scoreEl.textContent = String(score);
+}
+
+function gameLoop(timestamp: number): void {
+  if (!lastMoveTime) {
+    lastMoveTime = timestamp;
+  }
+  if (timestamp - lastMoveTime >= MOVE_INTERVAL) {
+    if (!gameOver) {
+      move();
+    }
+    lastMoveTime = timestamp;
+  }
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+window.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (gameOver) {
+    if (e.key === " ") {
+      reset();
+    }
+    return;
+  }
+
+  switch (e.key) {
+    case "ArrowUp":
+      if (dy === 0) {
+        nextDx = 0;
+        nextDy = -1;
+      }
+      break;
+    case "ArrowDown":
+      if (dy === 0) {
+        nextDx = 0;
+        nextDy = 1;
+      }
+      break;
+    case "ArrowLeft":
+      if (dx === 0) {
+        nextDx = -1;
+        nextDy = 0;
+      }
+      break;
+    case "ArrowRight":
+      if (dx === 0) {
+        nextDx = 1;
+        nextDy = 0;
+      }
+      break;
+  }
+});
+
+reset();
+requestAnimationFrame(gameLoop);
+```
+
+Let's double-check strict compilation.
+- `ctx` is checked for null. Good.
+- All variables are typed implicitly or explicitly. `snake` is `Point[]`. `food` is `Point`. `dx`, `dy`, etc. are numbers.
+- `Math.random()` returns number. `Math.floor` returns number. `x` and `y` are typed as number in the do-while. Good.
+- `snake.some((seg) => ...)` seg is inferred as Point. Good.
+- `e: KeyboardEvent` is typed. Good.
+- `window.addEventListener` is fine.
+- `requestAnimationFrame` returns number, but we don't use the return value. Fine.
+- `scoreEl.textContent` expects string. `String(score)` is fine.
+
+One potential issue: `ctx.textAlign = "center"` is valid. `ctx.textBaseline = "middle"` is valid.
+
+Another issue: `lastMoveTime` is initialized to 0. In `gameLoop`, `if (!lastMoveTime)` is true on first call (timestamp is usually > 0). So it sets `lastMoveTime = timestamp`. Then if `timestamp - lastMoveTime >= MOVE_INTERVAL` is 0, false. So no move on the very first frame. Next frame ~16ms later, still < 100, no move. After ~100ms, move. Good.
+
+What about when resetting via space? `reset()` sets `lastMoveTime = 0`. The next `gameLoop` call will see `!lastMoveTime` and set it to the current timestamp. Good.
+
+What about `snake` initial position? `Math.floor(GRID_WIDTH / 2)` = 10. So head at (10,10). Food placed. Good.
+
+Does the HTML contain the literal word "Score"? Yes, `<div id="score-board">Score: <span id="score">0</span></div>`.
+
+Are there any imports? No.
+
+Are there exactly two fenced code blocks? Yes.
+
+Order: HTML first, then TypeScript.
+
+I should make sure there is no extra text outside the code blocks. The user said "Output exactly two fenced code blocks, in this order, nothing else".
+
+So the final output should be:
+
+```html
+...index.html content...
+```
+
+```typescript
+...snake.ts content...
+```
+
+No markdown outside, no explanations.
+
+Let me review the HTML to ensure it's correct and minimal.
+- `<!DOCTYPE html>` is good.
+- `defer` in script tag is present.
+- `lang="en"` etc. fine.
+
+One small thing: the prompt says "The HTML must load the compiled JS via `<script src="snake.js" defer></script>`". My HTML has exactly that.
+
+Also, the prompt says "snake.ts must compile cleanly with tsc --target ES2022 --module ES2022 --strict". My code uses no modules, no exports, just global script. With `--module ES2022`, it should compile as an isolated script? Actually `tsc` with `--module ES2022` on a file with no imports/exports will treat it as a script or module? In TS, if there are no imports/exports, the file is not a module. But `--module ES2022` applies to modules. For scripts, it compiles fine, but the file is considered global. However, some strict settings might require something? Let's think.
+
+If the file has no `import` or `export`, TypeScript treats it as a script, not a module. The `--module` flag doesn't force every file to be a module. It should compile fine. But sometimes with `--module ES2022` and `tsc`, if you compile a single file that is a script, it might warn? No, it compiles fine. The output will be a script. The browser loads it via `<script>`, which is correct.
+
+To be extra safe, I could add `export {};` at the top or bottom to force it to be a module, but then the browser would need `<script type="module">`. The prompt explicitly says `<script src="snake.js" defer></script>`, which implies a classic script, not a module. So I must NOT use `export` or `import`. Thus it will be a script. `tsc` will compile it fine.
+
+One more check: `window.addEventListener` is fine in a script. All globals are accessible.
+
+The code looks solid. I'll produce the final output.

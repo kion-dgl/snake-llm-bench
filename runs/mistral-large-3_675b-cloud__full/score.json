@@ -1,0 +1,48 @@
+{
+  "runDir": "runs/mistral-large-3_675b-cloud__full",
+  "total": 9,
+  "passed": 9,
+  "score": 1,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": true
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "canvas_present",
+      "pass": true
+    },
+    {
+      "name": "canvas_has_size",
+      "pass": true,
+      "detail": "404x404"
+    },
+    {
+      "name": "score_label_present",
+      "pass": true
+    },
+    {
+      "name": "canvas_animates",
+      "pass": true,
+      "detail": "2073335409 -> -359786942"
+    },
+    {
+      "name": "responds_to_input",
+      "pass": true,
+      "detail": "tick=-359786942 afterInput=-1561671920 idle=-1561671920->-2039613043"
+    }
+  ]
+}

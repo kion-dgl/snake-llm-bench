@@ -1,0 +1,30 @@
+You wrote this Snake game in vanilla TypeScript + HTML5 Canvas.
+
+```html
+
+```
+
+```typescript
+
+```
+
+Automated testing found these problems:
+
+- snake.ts is missing from your previous output (extraction failed). Make sure you output a `typescript` fenced code block.
+
+Fix every problem and re-emit the complete files. Same constraints as before:
+- Two files: `index.html` and `snake.ts`.
+- `<script src="snake.js" defer></script>` exactly — do not use `type="module"`.
+- `snake.ts` must compile cleanly with `tsc --target ES2022 --module ES2022 --strict` (no type errors, no implicit any, satisfies `strictPropertyInitialization` and `strictNullChecks`).
+- Arrow keys to control. Visible "Score" text. Game-over on wall or self collision. Snake must keep moving without input (continuous game loop).
+- Browser globals only. No imports. No `type="module"`.
+
+Output exactly two fenced code blocks, in this order, nothing else:
+
+```html
+<!-- index.html content -->
+```
+
+```typescript
+// snake.ts content
+```

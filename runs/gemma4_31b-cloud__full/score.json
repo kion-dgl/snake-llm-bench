@@ -1,0 +1,48 @@
+{
+  "runDir": "runs/gemma4_31b-cloud__full",
+  "total": 9,
+  "passed": 8,
+  "score": 0.8888888888888888,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": true
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "canvas_present",
+      "pass": true
+    },
+    {
+      "name": "canvas_has_size",
+      "pass": true,
+      "detail": "410x410"
+    },
+    {
+      "name": "score_label_present",
+      "pass": true
+    },
+    {
+      "name": "canvas_animates",
+      "pass": false,
+      "detail": "621897443 -> 621897443"
+    },
+    {
+      "name": "responds_to_input",
+      "pass": true,
+      "detail": "tick=621897443 afterInput=2097551292 idle=2097551292->195786144"
+    }
+  ]
+}

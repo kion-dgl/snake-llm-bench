@@ -1,0 +1,207 @@
+You wrote this Snake game in vanilla TypeScript + HTML5 Canvas.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Snake Game</title>
+<style>
+  body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
+  #score { margin-top: 10px; font-size: 1.2em; }
+  #gameOver { margin-top: 10px; font-size: 1.5em; color: red; display: none; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="400" height="400"></canvas>
+<div id="score">Score: 0</div>
+<div id="gameOver">Game Over</div>
+<script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+```typescript
+// snake.ts
+interface Position {
+  x: number;
+  y: number;
+}
+
+enum Direction {
+  Up,
+  Down,
+  Left,
+  Right,
+}
+
+class SnakeGame {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private scoreDiv: HTMLDivElement;
+  private gameOverDiv: HTMLDivElement;
+  private cellSize: number;
+  private gridSize: number;
+  private snake: Position[];
+  private direction: Direction;
+  private food: Position;
+  private score: number;
+  private gameRunning: boolean;
+
+  constructor() {
+    this.canvas = document.getElementById('gameCanvas')! as HTMLCanvasElement;
+    this.ctx = this.canvas.getContext('2d')!;
+    this.scoreDiv = document.getElementById('score')! as HTMLDivElement;
+    this.gameOverDiv = document.getElementById('gameOver')! as HTMLDivElement;
+    this.cellSize = 20;
+    this.gridSize = this.canvas.width / this.cellSize;
+    const startX = Math.floor(this.gridSize / 2);
+    const startY = Math.floor(this.gridSize / 2);
+    this.snake = [{ x: startX, y: startY }];
+    this.direction = Direction.Right;
+    this.food = this.generateFood();
+    this.score = 0;
+    this.gameRunning = true;
+
+    window.addEventListener('keydown', (e: KeyboardEvent) => this.handleKeyDown(e));
+
+    requestAnimationFrame(() => this.gameLoop());
+  }
+
+  private generateFood(): Position {
+    let newFood: Position;
+    while (true) {
+      newFood = {
+        x: Math.floor(Math.random() * this.gridSize),
+        y: Math.floor(Math.random() * this.gridSize),
+      };
+      if (!this.snake.some(segment => segment.x === newFood.x && segment.y === newFood.y)) {
+        break;
+      }
+    }
+    return newFood;
+  }
+
+  private isOpposite(d1: Direction, d2: Direction): boolean {
+    return (d1 === Direction.Up && d2 === Direction.Down) ||
+           (d1 === Direction.Down && d2 === Direction.Up) ||
+           (d1 === Direction.Left && d2 === Direction.Right) ||
+           (d1 === Direction.Right && d2 === Direction.Left);
+  }
+
+  private handleKeyDown(e: KeyboardEvent): void {
+    let newDirection: Direction | null = null;
+    switch (e.key) {
+      case 'ArrowUp':
+        newDirection = Direction.Up;
+        break;
+      case 'ArrowDown':
+        newDirection = Direction.Down;
+        break;
+      case 'ArrowLeft':
+        newDirection = Direction.Left;
+        break;
+      case 'ArrowRight':
+        newDirection = Direction.Right;
+        break;
+    }
+    if (newDirection !== null && !this.isOpposite(this.direction, newDirection)) {
+      this.direction = newDirection;
+    }
+  }
+
+  private moveSnake(): void {
+    const head = this.snake[0];
+    let newHead: Position;
+    switch (this.direction) {
+      case Direction.Up:
+        newHead = { x: head.x, y: head.y - 1 };
+        break;
+      case Direction.Down:
+        newHead = { x: head.x, y: head.y + 1 };
+        break;
+      case Direction.Left:
+        newHead = { x: head.x - 1, y: head.y };
+        break;
+      case Direction.Right:
+        newHead = { x: head.x + 1, y: head.y };
+        break;
+    }
+
+    if (this.checkCollision(newHead)) {
+      this.gameOver();
+      return;
+    }
+
+    this.snake.unshift(newHead);
+
+    if (newHead.x === this.food.x && newHead.y === this.food.y) {
+      this.score += 1;
+      this.scoreDiv.textContent = `Score: ${this.score}`;
+      this.food = this.generateFood();
+    } else {
+      this.snake.pop();
+    }
+  }
+
+  private checkCollision(pos: Position): boolean {
+    if (pos.x < 0 || pos.x >= this.gridSize || pos.y < 0 || pos.y >= this.gridSize) {
+      return true;
+    }
+    return this.snake.some(segment => segment.x === pos.x && segment.y === pos.y);
+  }
+
+  private draw(): void {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Draw food
+    this.ctx.fillStyle = 'red';
+    this.ctx.fillRect(this.food.x * this.cellSize, this.food.y * this.cellSize, this.cellSize, this.cellSize);
+
+    // Draw snake
+    this.ctx.fillStyle = 'green';
+    this.snake.forEach(segment => {
+      this.ctx.fillRect(segment.x * this.cellSize, segment.y * this.cellSize, this.cellSize, this.cellSize);
+    });
+  }
+
+  private gameLoop(): void {
+    if (!this.gameRunning) {
+      return;
+    }
+    this.moveSnake();
+    this.draw();
+    requestAnimationFrame(() => this.gameLoop());
+  }
+
+  private gameOver(): void {
+    this.gameRunning = false;
+    this.gameOverDiv.style.display = 'block';
+  }
+}
+
+new SnakeGame();
+```
+
+Automated testing found these problems:
+
+- The canvas is NOT animating without user input (pixel hash unchanged over ~300ms). Your game loop is missing or paused; the snake must move continuously via setInterval/requestAnimationFrame from the moment the page loads.
+
+- Pressing arrow keys does not change the canvas. Either the keydown listener is missing, attached to the wrong element, or the game has already ended (e.g. snake immediately hit a wall). Listen on `window` or `document`, and start the snake away from the walls.
+
+Fix every problem and re-emit the complete files. Same constraints as before:
+- Two files: `index.html` and `snake.ts`.
+- `<script src="snake.js" defer></script>` exactly — do not use `type="module"`.
+- `snake.ts` must compile cleanly with `tsc --target ES2022 --module ES2022 --strict` (no type errors, no implicit any, satisfies `strictPropertyInitialization` and `strictNullChecks`).
+- Arrow keys to control. Visible "Score" text. Game-over on wall or self collision. Snake must keep moving without input (continuous game loop).
+- Browser globals only. No imports. No `type="module"`.
+
+Output exactly two fenced code blocks, in this order, nothing else:
+
+```html
+<!-- index.html content -->
+```
+
+```typescript
+// snake.ts content
+```

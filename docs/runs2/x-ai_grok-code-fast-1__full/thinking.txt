@@ -1,0 +1,1 @@
+First, the output must be exactly two fenced code blocks: one for index.html and one for snake.ts. Nothing else.

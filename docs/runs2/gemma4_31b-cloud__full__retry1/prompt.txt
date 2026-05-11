@@ -1,0 +1,401 @@
+Target specification (the task you were asked to complete):
+
+# Snake — v2 spec (stricter, playtest-comparable)
+
+Build a Snake game with the **exact** mechanics, controls, and layout below. Same constraints as v1 (vanilla TypeScript + HTML5 Canvas, no frameworks, no imports, two files), but with much tighter rules so all games are directly comparable on a phone playtest.
+
+---
+
+## Mechanics
+
+- **Grid**: 20 cells × 20 cells.
+- **Cell size**: 20 px. So the canvas is exactly **400×400 px**.
+- **Starting snake**: length 3, head at `(10, 10)`, body trailing to `(9, 10)` and `(8, 10)`. Moving **right**.
+- **Initial tick interval**: 150 ms.
+- **Speed-up**: after every **5 apples eaten**, the tick interval decreases by **10 ms**. Minimum tick interval: **60 ms**.
+- **Apple spawn**: exactly one apple at any time, placed on a random cell that is not currently occupied by the snake. When an apple is eaten, snake grows by 1 segment and a new apple spawns.
+- **Game-over conditions**: head moves into a wall (out of grid) or into any other body segment. The snake may chase its own tail by exactly one cell — i.e. the tail cell that is *about* to vacate is not counted as a collision.
+- **Pause state**: the game **starts paused**. The page renders the initial board, but the snake does not move until the player presses Space.
+- **Reverse-into-self prevention**: a key that requests the exact opposite of the current direction is ignored.
+- **Wrap-around**: none. Walls kill.
+
+## Controls
+
+| Key | Action |
+|---|---|
+| Arrow Up / W | Set direction up |
+| Arrow Down / S | Set direction down |
+| Arrow Left / A | Set direction left |
+| Arrow Right / D | Set direction right |
+| Space | Start the game on first press; toggle pause/resume thereafter |
+| R | Restart from initial state. Works at any time, including during game-over. |
+
+Listen for keys on `window` or `document`. Call `e.preventDefault()` on the keys you handle so the page doesn't scroll.
+
+## On-screen UI
+
+The page **must** contain, in this order, top to bottom:
+
+1. A heading `<h1>Snake</h1>`.
+2. A line of text containing the literal substring `Score: N` where N is the current score (count of apples eaten this run).
+3. A line of text containing the literal substring `High: N` where N is the highest score seen so far. **Persist this value in `localStorage` under the key `snake.high`** so it survives reloads.
+4. The 400×400 canvas with a 1px or 2px border so the play field is visible.
+5. A line of help text: `Arrow keys or WASD to move · Space to start/pause · R to restart`.
+
+When the game is **paused before first start**, draw the text `Press Space to start` centered on the canvas.
+When the game is **paused after first start**, draw the text `Paused` centered on the canvas.
+When the game is **over**, draw `Game Over — press R to restart` centered on the canvas, and **stop the tick** (don't keep clearing/redrawing every frame).
+
+## Colors
+
+- Page background: `#111`
+- Canvas background: `#000`
+- Snake body: `#3aa635` (darker green)
+- Snake head: `#7ed957` (brighter green)
+- Apple: `#c0392b`
+- Text overlays on canvas: `#fff`, 20px sans-serif, centered
+
+## Code structure (module outline)
+
+Two files, **exactly** these names:
+
+### `index.html`
+
+- `<!doctype html>`, viewport meta, `<title>Snake</title>`.
+- Inline `<style>` block containing only the page-level styles above.
+- DOM elements: `<h1>`, score line (`<div id="score">Score: 0</div>`), high line (`<div id="high">High: 0</div>`), `<canvas id="game" width="400" height="400">`, help text.
+- Loads JS via `<script src="snake.js" defer></script>` — **no `type="module"`**.
+
+### `snake.ts`
+
+Use this structure verbatim — same type names, same exported-or-not surface, same property shapes. You may add private helper methods inside `Game` but do not rename or remove anything below.
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;       // apples
+const SPEEDUP_DELTA = 10;      // ms
+
+class Game {
+  // Required public methods:
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement);
+  start(): void;          // begins the tick (called from Space when paused before first start)
+  togglePause(): void;    // pauses or resumes during play
+  restart(): void;        // full reset to initial state, paused-before-start
+  // Private state must include at minimum:
+  //   snake: Cell[]; dir: Direction; pendingDir: Direction | null;
+  //   food: Cell; score: number; high: number;
+  //   tickMs: number; alive: boolean; started: boolean; paused: boolean;
+}
+
+// Top-level setup (no exports):
+//   - get canvas/score/high elements
+//   - load high from localStorage.getItem('snake.high')
+//   - new Game(canvas, scoreEl, highEl)
+//   - install window keydown listener
+```
+
+The class must compile under `--strict` including `strictPropertyInitialization` and `strictNullChecks`. Use `!` definite-assignment, inline initializers, or constructor-body assignments as needed.
+
+## Output format
+
+Output exactly two fenced code blocks, in this order, nothing else. No prose, no explanation, no preamble.
+
+```html
+<!-- index.html content -->
+```
+
+```typescript
+// snake.ts content
+```
+
+
+---
+
+You wrote this Snake game in vanilla TypeScript + HTML5 Canvas.
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake</title>
+    <style>
+        body {
+            background-color: #111;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            height: 100vh;
+        }
+        h1 { margin-bottom: 10px; }
+        #score, #high { margin: 5px 0; font-size: 18px; }
+        canvas {
+            background-color: #000;
+            border: 2px solid #fff;
+            display: block;
+        }
+        .help { margin-top: 15px; font-size: 14px; color: #aaa; }
+    </style>
+</head>
+<body>
+    <h1>Snake</h1>
+    <div id="score">Score: 0</div>
+    <div id="high">High: 0</div>
+    <canvas id="game" width="400" height="400"></canvas>
+    <div class="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+    <script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;
+const SPEEDUP_DELTA = 10;
+
+class Game {
+    private canvas: HTMLCanvasElement;
+    private ctx: CanvasRenderingContext2D;
+    private scoreEl: HTMLElement;
+    private highEl: HTMLElement;
+
+    private snake: Cell[] = [];
+    private dir: Direction = { x: 1, y: 0 };
+    private pendingDir: Direction | null = null;
+    private food: Cell = { x: 0, y: 0 };
+    private score: number = 0;
+    private high: number = 0;
+    private tickMs: number = INITIAL_TICK_MS;
+    private alive: boolean = true;
+    private started: boolean = false;
+    private paused: boolean = true;
+    private timer: number | null = null;
+
+    constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d')!;
+        this.scoreEl = scoreEl;
+        this.highEl = highEl;
+        
+        const savedHigh = localStorage.getItem('snake.high');
+        this.high = savedHigh ? parseInt(savedHigh, 10) : 0;
+        
+        this.restart();
+    }
+
+    public start(): void {
+        if (!this.started) {
+            this.started = true;
+            this.paused = false;
+            this.runTick();
+        }
+    }
+
+    public togglePause(): void {
+        if (this.started && this.alive) {
+            this.paused = !this.paused;
+            if (!this.paused) this.runTick();
+            else if (this.timer) clearTimeout(this.timer);
+        }
+    }
+
+    public restart(): void {
+        this.snake = [
+            { x: 10, y: 10 },
+            { x: 9, y: 10 },
+            { x: 8, y: 10 }
+        ];
+        this.dir = { x: 1, y: 0 };
+        this.pendingDir = null;
+        this.score = 0;
+        this.tickMs = INITIAL_TICK_MS;
+        this.alive = true;
+        this.started = false;
+        this.paused = true;
+        if (this.timer) clearTimeout(this.timer);
+        this.timer = null;
+        
+        this.spawnFood();
+        this.updateUI();
+        this.draw();
+    }
+
+    private spawnFood(): void {
+        let newFood: Cell;
+        while (true) {
+            newFood = {
+                x: Math.floor(Math.random() * GRID),
+                y: Math.floor(Math.random() * GRID)
+            };
+            if (!this.snake.some(seg => seg.x === newFood.x && seg.y === newFood.y)) break;
+        }
+        this.food = newFood;
+    }
+
+    private updateUI(): void {
+        this.scoreEl.innerText = `Score: ${this.score}`;
+        this.highEl.innerText = `High: ${this.high}`;
+    }
+
+    private runTick(): void {
+        if (!this.alive || this.paused) return;
+
+        this.update();
+        this.draw();
+
+        this.timer = window.setTimeout(() => this.runTick(), this.tickMs);
+    }
+
+    private update(): void {
+        if (this.pendingDir) {
+            this.dir = this.pendingDir;
+            this.pendingDir = null;
+        }
+
+        const head = { 
+            x: this.snake[0].x + this.dir.x, 
+            y: this.snake[0].y + this.dir.y 
+        };
+
+        // Wall collision
+        if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) {
+            this.gameOver();
+            return;
+        }
+
+        // Body collision (ignore tail cell that is vacating)
+        for (let i = 0; i < this.snake.length - 1; i++) {
+            if (this.snake[i].x === head.x && this.snake[i].y === head.y) {
+                this.gameOver();
+                return;
+            }
+        }
+
+        this.snake.unshift(head);
+
+        if (head.x === this.food.x && head.y === this.food.y) {
+            this.score++;
+            if (this.score > this.high) {
+                this.high = this.score;
+                localStorage.setItem('snake.high', this.high.toString());
+            }
+            this.updateUI();
+            this.spawnFood();
+            
+            if (this.score % SPEEDUP_EVERY === 0) {
+                this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+            }
+        } else {
+            this.snake.pop();
+        }
+    }
+
+    private gameOver(): void {
+        this.alive = false;
+        if (this.timer) clearTimeout(this.timer);
+        this.draw();
+    }
+
+    private draw(): void {
+        this.ctx.fillStyle = '#000';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Food
+        this.ctx.fillStyle = '#c0392b';
+        this.ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+
+        // Snake
+        this.snake.forEach((seg, i) => {
+            this.ctx.fillStyle = i === 0 ? '#7ed957' : '#3aa635';
+            this.ctx.fillRect(seg.x * CELL, seg.y * CELL, CELL, CELL);
+        });
+
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = '20px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+
+        if (!this.started) {
+            this.ctx.fillText('Press Space to start', 200, 200);
+        } else if (this.paused && this.alive) {
+            this.ctx.fillText('Paused', 200, 200);
+        } else if (!this.alive) {
+            this.ctx.fillText('Game Over — press R to restart', 200, 200);
+        }
+    }
+
+    public setDirection(nx: number, ny: number): void {
+        // Prevent reverse-into-self
+        if (nx === -this.dir.x && ny === -this.dir.y) return;
+        this.pendingDir = { x: nx, y: ny };
+    }
+}
+
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const scoreEl = document.getElementById('score') as HTMLElement;
+const highEl = document.getElementById('high') as HTMLElement;
+const game = new Game(canvas, scoreEl, highEl);
+
+window.addEventListener('keydown', (e) => {
+    switch (e.key) {
+        case 'ArrowUp': case 'w': case 'W':
+            e.preventDefault(); game.setDirection(0, -1); break;
+        case 'ArrowDown': case 's': case 'S':
+            e.preventDefault(); game.setDirection(0, 1); break;
+        case 'ArrowLeft': case 'a': case 'A':
+            e.preventDefault(); game.setDirection(-1, 0); break;
+        case 'ArrowRight': case 'd': case 'D':
+            e.preventDefault(); game.setDirection(1, 0); break;
+        case ' ':
+            e.preventDefault();
+            if (!game.started) game.start();
+            else game.togglePause();
+            break;
+        case 'r': case 'R':
+            e.preventDefault();
+            game.restart();
+            break;
+    }
+});
+```
+
+Automated testing found these problems:
+
+- TypeScript compilation failed under `--strict`:
+```
+runs2/gemma4_31b-cloud__full/snake.ts(206,23): error TS2341: Property 'started' is private and only accessible within class 'Game'.
+```
+
+Fix every problem and re-emit the complete files. Same constraints as before:
+- Two files: `index.html` and `snake.ts`.
+- `<script src="snake.js" defer></script>` exactly — do not use `type="module"`.
+- `snake.ts` must compile cleanly with `tsc --target ES2022 --module ES2022 --strict` (no type errors, no implicit any, satisfies `strictPropertyInitialization` and `strictNullChecks`).
+- Arrow keys to control. Visible "Score" text. Game-over on wall or self collision. Snake must keep moving without input (continuous game loop).
+- Browser globals only. No imports. No `type="module"`.
+
+Output exactly two fenced code blocks, in this order, nothing else:
+
+```html
+<!-- index.html content -->
+```
+
+```typescript
+// snake.ts content
+```

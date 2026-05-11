@@ -1,0 +1,10 @@
+{
+  "model": "mistral-large-3:675b-cloud",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 20640,
+  "promptEvalCount": 185,
+  "evalCount": 1270,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T14:29:34.206Z"
+}

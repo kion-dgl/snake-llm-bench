@@ -1,0 +1,37 @@
+{
+  "runDir": "runs2/meta-llama_llama-4-scout__full",
+  "total": 7,
+  "passed": 6,
+  "score": 0.8571428571428571,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "score_label_present",
+      "pass": true
+    },
+    {
+      "name": "high_label_present",
+      "pass": true
+    },
+    {
+      "name": "class_game_present",
+      "pass": true
+    },
+    {
+      "name": "snake_high_key_present",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": false,
+      "detail": "runs2/meta-llama_llama-4-scout__full/snake.ts(180,16): error TS2341: Property 'dir' is private and only accessible within class 'Game'.\nruns2/meta-llama_llama-4-scout__full/snake.ts(181,14): error TS2341: Property 'pendingDir' is private and only accessible within class 'Game'.\nruns2/meta-llama_llama-4-scout__full/snake.ts(186,16): error TS2341: Property 'dir' is private and only accessible within class 'Game'.\nruns2/meta-llama_llama-4-scout__full/snake.ts(187,14): error TS2341: Property 'pendingDir' is private and only accessible within class 'Game'.\nruns2/meta-llama_llama-4-scout__full/snake"
+    }
+  ]
+}

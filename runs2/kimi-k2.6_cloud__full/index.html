@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snake</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 16px;
+    }
+    h1 {
+      margin: 0 0 8px;
+    }
+    #score, #high {
+      margin: 2px 0;
+    }
+    canvas {
+      background: #000;
+      border: 2px solid #fff;
+      margin: 12px 0;
+    }
+    .help {
+      color: #ccc;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <div id="score">Score: 0</div>
+  <div id="high">High: 0</div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <div class="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+  <script src="snake.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "runDir": "runs/glm-5_cloud__full",
+  "total": 3,
+  "passed": 2,
+  "score": 0.6666666666666666,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": false,
+      "detail": "runs/glm-5_cloud__full/snake.ts(4,13): error TS2403: Subsequent variable declarations must have the same type.  Variable 'document' must be of type 'Document', but here has type 'any'.\nruns/glm-5_cloud__full/snake.ts(5,13): error TS2403: Subsequent variable declarations must have the same type.  Variable 'window' must be of type 'Window & typeof globalThis', but here has type 'any'."
+    }
+  ]
+}

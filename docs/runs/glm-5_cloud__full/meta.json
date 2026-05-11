@@ -1,0 +1,10 @@
+{
+  "model": "glm-5:cloud",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 354144,
+  "promptEvalCount": 176,
+  "evalCount": 9357,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T14:26:28.886Z"
+}

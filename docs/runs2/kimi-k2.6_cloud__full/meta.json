@@ -1,0 +1,10 @@
+{
+  "model": "kimi-k2.6:cloud",
+  "role": "full",
+  "durationMs": 191979,
+  "promptEvalCount": 1336,
+  "evalCount": 3333,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:41:09.034Z",
+  "promptSource": "prompts/snake-spec.md"
+}

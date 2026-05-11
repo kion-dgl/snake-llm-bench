@@ -1,0 +1,10 @@
+{
+  "model": "nemotron-3-super:cloud",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 16857,
+  "promptEvalCount": 199,
+  "evalCount": 3010,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T14:27:02.614Z"
+}

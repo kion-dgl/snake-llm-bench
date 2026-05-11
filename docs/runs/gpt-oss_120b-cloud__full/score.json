@@ -1,0 +1,48 @@
+{
+  "runDir": "runs/gpt-oss_120b-cloud__full",
+  "total": 9,
+  "passed": 9,
+  "score": 1,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": true
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "canvas_present",
+      "pass": true
+    },
+    {
+      "name": "canvas_has_size",
+      "pass": true,
+      "detail": "400x400"
+    },
+    {
+      "name": "score_label_present",
+      "pass": true
+    },
+    {
+      "name": "canvas_animates",
+      "pass": true,
+      "detail": "1434584500 -> 564460020"
+    },
+    {
+      "name": "responds_to_input",
+      "pass": true,
+      "detail": "tick=564460020 afterInput=737614585 idle=737614585->-180319816"
+    }
+  ]
+}

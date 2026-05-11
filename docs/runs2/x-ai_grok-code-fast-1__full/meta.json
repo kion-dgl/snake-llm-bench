@@ -1,0 +1,10 @@
+{
+  "model": "x-ai/grok-code-fast-1",
+  "role": "full",
+  "durationMs": 22221,
+  "promptEvalCount": 1521,
+  "evalCount": 3691,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T21:05:41.046Z",
+  "promptSource": "prompts/snake-spec.md"
+}

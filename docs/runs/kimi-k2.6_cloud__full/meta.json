@@ -1,0 +1,10 @@
+{
+  "model": "kimi-k2.6:cloud",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 123685,
+  "promptEvalCount": 182,
+  "evalCount": 7040,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T14:11:57.053Z"
+}

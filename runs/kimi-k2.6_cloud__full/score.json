@@ -1,0 +1,21 @@
+{
+  "runDir": "runs/kimi-k2.6_cloud__full",
+  "total": 3,
+  "passed": 2,
+  "score": 0.6666666666666666,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": false,
+      "detail": "runs/kimi-k2.6_cloud__full/snake.ts(79,3): error TS18047: 'ctx' is possibly 'null'.\nruns/kimi-k2.6_cloud__full/snake.ts(80,3): error TS18047: 'ctx' is possibly 'null'.\nruns/kimi-k2.6_cloud__full/snake.ts(82,3): error TS18047: 'ctx' is possibly 'null'.\nruns/kimi-k2.6_cloud__full/snake.ts(83,3): error TS18047: 'ctx' is possibly 'null'.\nruns/kimi-k2.6_cloud__full/snake.ts(90,3): error TS18047: 'ctx' is possibly 'null'.\nruns/kimi-k2.6_cloud__full/snake.ts(92,5): error TS18047: 'ctx' is possibly 'null'.\nruns/kimi-k2.6_cloud__full/snake.ts(101,5): error TS18047: 'ctx' is possibly 'null'.\nruns/kimi-k"
+    }
+  ]
+}

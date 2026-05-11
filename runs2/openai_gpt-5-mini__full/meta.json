@@ -1,0 +1,10 @@
+{
+  "model": "openai/gpt-5-mini",
+  "role": "full",
+  "durationMs": 48266,
+  "promptEvalCount": 1360,
+  "evalCount": 4582,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T20:32:48.752Z",
+  "promptSource": "prompts/snake-spec.md"
+}

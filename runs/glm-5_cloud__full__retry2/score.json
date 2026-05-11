@@ -1,0 +1,48 @@
+{
+  "runDir": "runs/glm-5_cloud__full__retry2",
+  "total": 9,
+  "passed": 9,
+  "score": 1,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": true
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "canvas_present",
+      "pass": true
+    },
+    {
+      "name": "canvas_has_size",
+      "pass": true,
+      "detail": "404x404"
+    },
+    {
+      "name": "score_label_present",
+      "pass": true
+    },
+    {
+      "name": "canvas_animates",
+      "pass": true,
+      "detail": "750434760 -> -2074931767"
+    },
+    {
+      "name": "responds_to_input",
+      "pass": true,
+      "detail": "tick=-2074931767 afterInput=905622088 idle=905622088->-789748598"
+    }
+  ]
+}

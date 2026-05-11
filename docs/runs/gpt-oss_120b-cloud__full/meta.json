@@ -1,0 +1,9 @@
+{
+  "model": "gpt-oss:120b-cloud",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 29393,
+  "promptEvalCount": 240,
+  "evalCount": 2087,
+  "timestamp": "2026-05-11T13:55:13.448Z"
+}

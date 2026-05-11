@@ -1,0 +1,17 @@
+{
+  "name": "ollama-vs-claude-eval",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "eval": "bun harness/eval.ts",
+    "score": "bun harness/score.ts",
+    "serve": "bun harness/serve.ts",
+    "matrix": "bun harness/matrix.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "playwright": "^1.48.0",
+    "typescript": "^5.6.0"
+  }
+}

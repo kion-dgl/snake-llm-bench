@@ -1,0 +1,10 @@
+{
+  "model": "nemotron-3-super:cloud",
+  "role": "full",
+  "durationMs": 70800,
+  "promptEvalCount": 1418,
+  "evalCount": 6213,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:36:27.425Z",
+  "promptSource": "prompts/snake-spec.md"
+}

@@ -1,0 +1,11 @@
+{
+  "model": "qwen3-coder:480b-cloud",
+  "role": "fixup",
+  "baseRun": "runs2/qwen3-coder_480b-cloud__full",
+  "attempt": 1,
+  "durationMs": 265942,
+  "promptEvalCount": 3779,
+  "evalCount": 2127,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:33:44.617Z"
+}

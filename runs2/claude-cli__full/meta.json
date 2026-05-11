@@ -1,0 +1,16 @@
+{
+  "model": "claude-opus",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 26890,
+  "durationApiMs": 24208,
+  "promptEvalCount": 20711,
+  "evalCount": 3277,
+  "doneReason": "end_turn",
+  "totalCostUsd": 0.16371225,
+  "cliFreshInputTokens": 5,
+  "cliCacheCreationTokens": 12419,
+  "cliCacheReadTokens": 8287,
+  "timestamp": "2026-05-11T15:25:03.081Z",
+  "note": "Run via `claude -p`. Cache tokens reflect CLI default-system-prompt overhead, not the eval prompt itself."
+}

@@ -1,0 +1,11 @@
+{
+  "model": "meta-llama/llama-4-scout",
+  "role": "fixup",
+  "baseRun": "runs2/meta-llama_llama-4-scout__full",
+  "attempt": 1,
+  "durationMs": 5121,
+  "promptEvalCount": 3709,
+  "evalCount": 2025,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T20:38:34.975Z"
+}

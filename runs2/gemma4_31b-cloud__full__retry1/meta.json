@@ -1,0 +1,11 @@
+{
+  "model": "gemma4:31b-cloud",
+  "role": "fixup",
+  "baseRun": "runs2/gemma4_31b-cloud__full",
+  "attempt": 1,
+  "durationMs": 14603,
+  "promptEvalCount": 4128,
+  "evalCount": 2346,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:35:10.690Z"
+}

@@ -1,0 +1,10 @@
+{
+  "model": "deepseek-v4-pro:cloud",
+  "role": "full",
+  "durationMs": 245441,
+  "promptEvalCount": 1392,
+  "evalCount": 7661,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:39:25.775Z",
+  "promptSource": "prompts/snake-spec.md"
+}

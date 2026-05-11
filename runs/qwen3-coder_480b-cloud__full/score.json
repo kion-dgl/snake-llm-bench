@@ -1,0 +1,48 @@
+{
+  "runDir": "runs/qwen3-coder_480b-cloud__full",
+  "total": 9,
+  "passed": 9,
+  "score": 1,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": true
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "canvas_present",
+      "pass": true
+    },
+    {
+      "name": "canvas_has_size",
+      "pass": true,
+      "detail": "404x404"
+    },
+    {
+      "name": "score_label_present",
+      "pass": true
+    },
+    {
+      "name": "canvas_animates",
+      "pass": true,
+      "detail": "943144088 -> 231631847"
+    },
+    {
+      "name": "responds_to_input",
+      "pass": true,
+      "detail": "tick=231631847 afterInput=1853929763 idle=1853929763->508136324"
+    }
+  ]
+}

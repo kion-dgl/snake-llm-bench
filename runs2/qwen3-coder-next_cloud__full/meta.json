@@ -1,0 +1,10 @@
+{
+  "model": "qwen3-coder-next:cloud",
+  "role": "full",
+  "durationMs": 138949,
+  "promptEvalCount": 1386,
+  "evalCount": 2117,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:36:49.441Z",
+  "promptSource": "prompts/snake-spec.md"
+}

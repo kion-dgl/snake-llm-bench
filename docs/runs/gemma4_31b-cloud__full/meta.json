@@ -1,0 +1,10 @@
+{
+  "model": "gemma4:31b-cloud",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 19739,
+  "promptEvalCount": 204,
+  "evalCount": 1507,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T14:20:16.676Z"
+}

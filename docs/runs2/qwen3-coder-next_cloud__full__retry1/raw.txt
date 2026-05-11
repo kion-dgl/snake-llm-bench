@@ -1,0 +1,304 @@
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      margin: 10px 0;
+    }
+    #score, #high {
+      margin: 5px 0;
+    }
+    #game {
+      border: 2px solid #333;
+      margin: 10px 0;
+    }
+    #help {
+      margin: 5px 0;
+      font-size: 14px;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <div id="score">Score: 0</div>
+  <div id="high">High: 0</div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <div id="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+  <script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;
+const SPEEDUP_DELTA = 10;
+
+class Game {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private scoreEl: HTMLElement;
+  private highEl: HTMLElement;
+  
+  private snake: Cell[] = [];
+  private dir: Direction = { x: 1, y: 0 };
+  private pendingDir: Direction | null = null;
+  private food: Cell = { x: 0, y: 0 };
+  private score: number = 0;
+  private high: number = 0;
+  private tickMs: number = INITIAL_TICK_MS;
+  private alive: boolean = true;
+  private started: boolean = false;
+  private paused: boolean = true;
+  private tickId: number | null = null;
+
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+    
+    const storedHigh = localStorage.getItem('snake.high');
+    this.high = storedHigh ? parseInt(storedHigh, 10) : 0;
+    this.updateHighDisplay();
+
+    this.restart();
+  }
+
+  start(): void {
+    if (this.started && this.paused) {
+      this.paused = false;
+      this.tick();
+    } else if (!this.started) {
+      this.started = true;
+      this.paused = false;
+      this.tick();
+    }
+  }
+
+  togglePause(): void {
+    if (!this.started || !this.alive) return;
+    this.paused = !this.paused;
+    if (!this.paused) {
+      this.tick();
+    }
+  }
+
+  restart(): void {
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = true;
+    this.started = false;
+    this.paused = true;
+    
+    this.updateScoreDisplay();
+    this.spawnFood();
+    this.draw();
+  }
+
+  private spawnFood(): void {
+    let valid = false;
+    let x: number, y: number;
+    while (!valid) {
+      x = Math.floor(Math.random() * GRID);
+      y = Math.floor(Math.random() * GRID);
+      valid = true;
+      for (const segment of this.snake) {
+        if (segment.x === x && segment.y === y) {
+          valid = false;
+          break;
+        }
+      }
+    }
+    this.food = { x, y };
+  }
+
+  private tick(): void {
+    if (this.tickId) {
+      window.clearTimeout(this.tickId);
+    }
+    
+    if (this.paused || !this.alive) {
+      this.draw();
+      return;
+    }
+
+    if (this.pendingDir) {
+      if (this.pendingDir.x !== -this.dir.x || this.pendingDir.y !== -this.dir.y) {
+        this.dir = this.pendingDir;
+      }
+      this.pendingDir = null;
+    }
+
+    const head = this.snake[0];
+    const newHead = { x: head.x + this.dir.x, y: head.y + this.dir.y };
+
+    if (newHead.x < 0 || newHead.x >= GRID || newHead.y < 0 || newHead.y >= GRID) {
+      this.gameOver();
+      return;
+    }
+
+    for (let i = 0; i < this.snake.length - 1; i++) {
+      if (newHead.x === this.snake[i].x && newHead.y === this.snake[i].y) {
+        this.gameOver();
+        return;
+      }
+    }
+
+    this.snake.unshift(newHead);
+
+    if (newHead.x === this.food.x && newHead.y === this.food.y) {
+      this.score++;
+      this.updateScoreDisplay();
+      
+      if (this.score % SPEEDUP_EVERY === 0) {
+        this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+      }
+      
+      this.spawnFood();
+    } else {
+      this.snake.pop();
+    }
+
+    this.draw();
+
+    this.tickId = window.setTimeout(() => this.tick(), this.tickMs);
+  }
+
+  private gameOver(): void {
+    this.alive = false;
+    this.paused = true;
+    
+    if (this.score > this.high) {
+      this.high = this.score;
+      localStorage.setItem('snake.high', this.high.toString());
+      this.updateHighDisplay();
+    }
+    
+    this.draw();
+  }
+
+  private updateScoreDisplay(): void {
+    this.scoreEl.textContent = `Score: ${this.score}`;
+  }
+
+  private updateHighDisplay(): void {
+    this.highEl.textContent = `High: ${this.high}`;
+  }
+
+  private draw(): void {
+    this.ctx.fillStyle = '#000';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.ctx.fillStyle = '#c0392b';
+    this.ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+
+    for (let i = 0; i < this.snake.length; i++) {
+      const segment = this.snake[i];
+      this.ctx.fillStyle = i === 0 ? '#7ed957' : '#3aa635';
+      this.ctx.fillRect(segment.x * CELL, segment.y * CELL, CELL, CELL);
+    }
+
+    if (!this.started) {
+      this.drawOverlay('Press Space to start');
+    } else if (this.paused) {
+      this.drawOverlay('Paused');
+    } else if (!this.alive) {
+      this.drawOverlay('Game Over — press R to restart');
+    }
+  }
+
+  private drawOverlay(text: string): void {
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = '20px sans-serif';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(text, this.canvas.width / 2, this.canvas.height / 2);
+  }
+
+  public setDirection(x: number, y: number): void {
+    if (this.paused || !this.started || !this.alive) return;
+    
+    if (x === -this.dir.x && y === -this.dir.y) return;
+    
+    this.pendingDir = { x, y };
+  }
+}
+
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const scoreEl = document.getElementById('score')!;
+const highEl = document.getElementById('high')!;
+
+const game = new Game(canvas, scoreEl, highEl);
+
+window.addEventListener('keydown', (e) => {
+  switch (e.key) {
+    case 'ArrowUp':
+    case 'w':
+    case 'W':
+      e.preventDefault();
+      game.setDirection(0, -1);
+      break;
+    case 'ArrowDown':
+    case 's':
+    case 'S':
+      e.preventDefault();
+      game.setDirection(0, 1);
+      break;
+    case 'ArrowLeft':
+    case 'a':
+    case 'A':
+      e.preventDefault();
+      game.setDirection(-1, 0);
+      break;
+    case 'ArrowRight':
+    case 'd':
+    case 'D':
+      e.preventDefault();
+      game.setDirection(1, 0);
+      break;
+    case ' ':
+      e.preventDefault();
+      if (!game.started) {
+        game.start();
+      } else {
+        game.togglePause();
+      }
+      break;
+    case 'r':
+    case 'R':
+      e.preventDefault();
+      game.restart();
+      break;
+  }
+});
+```

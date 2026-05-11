@@ -1,0 +1,10 @@
+{
+  "model": "gpt-oss:120b-cloud",
+  "role": "full",
+  "durationMs": 46521,
+  "promptEvalCount": 1421,
+  "evalCount": 3721,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:35:14.570Z",
+  "promptSource": "prompts/snake-spec.md"
+}

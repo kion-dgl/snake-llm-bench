@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Snake</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {
+        margin: 0;
+        padding: 24px 0;
+        background: #111;
+        color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+      h1 {
+        margin: 0;
+      }
+      #score,
+      #high {
+        font-size: 1.1rem;
+      }
+      #game {
+        display: block;
+        background: #000;
+        border: 2px solid #444;
+      }
+      .help {
+        font-size: 0.9rem;
+        color: #ccc;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Snake</h1>
+    <div id="score">Score: 0</div>
+    <div id="high">High: 0</div>
+    <canvas id="game" width="400" height="400"></canvas>
+    <div class="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+    <script src="snake.js" defer></script>
+  </body>
+</html>

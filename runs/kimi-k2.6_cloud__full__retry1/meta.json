@@ -1,0 +1,11 @@
+{
+  "model": "kimi-k2.6:cloud",
+  "role": "fixup",
+  "baseRun": "runs/kimi-k2.6_cloud__full",
+  "attempt": 1,
+  "durationMs": 149803,
+  "promptEvalCount": 1657,
+  "evalCount": 10560,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:07:43.766Z"
+}

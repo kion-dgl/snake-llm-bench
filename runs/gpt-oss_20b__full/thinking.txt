@@ -1,0 +1,142 @@
+We need to output two fenced code blocks: one for index.html, one for snake.ts. They must satisfy requirements.
+
+We need vanilla TS + Canvas. No frameworks. Use strict mode. No implicit any. So we need to type everything.
+
+We need arrow keys to control. Score visible. Game over on wall or self collision. The page must contain literal word "Score" somewhere visible. So maybe a <div id="score">Score: 0</div>.
+
+We need to compile with tsc --target ES2022 --module ES2022 --strict. So we need to use ES2022 modules? But we are not importing anything. We can use top-level code. But we need to compile to snake.js. The script tag uses defer. So we can just write code that runs on load.
+
+We need to avoid implicit any: all variables typed. Use const, let with types.
+
+We need to handle arrow keys: event listeners on keydown.
+
+Game loop: use requestAnimationFrame. Use a grid. Represent snake as array of positions. Each tick, move snake. Check collisions. Score increments each time snake eats food. Food random position not on snake.
+
+Canvas size: maybe 400x400. Cell size 20. So grid 20x20.
+
+We need to draw snake and food.
+
+Game over: stop loop, show message.
+
+We need to ensure no implicit any: all functions typed.
+
+We need to avoid using any. Use type annotations.
+
+We need to compile with ES2022 modules. But we don't import. We can just use top-level code. The module flag will treat file as module. That's fine.
+
+We need to ensure no implicit any: e.g., event handler type: (e: KeyboardEvent) => void.
+
+We need to avoid any usage of any.
+
+Let's write code.
+
+index.html: include canvas, score div, maybe style.
+
+Add <script src="snake.js" defer></script>.
+
+Add <canvas id="gameCanvas" width="400" height="400"></canvas>.
+
+Add <div id="score">Score: 0</div>.
+
+Add <div id="gameOver" style="display:none;">Game Over</div>.
+
+Add minimal CSS.
+
+Now snake.ts: define types.
+
+Define interface Position { x: number; y: number; }
+
+Define enum Direction { Up, Down, Left, Right }
+
+Define class SnakeGame.
+
+But we can just use functions.
+
+Simplify: use global constants.
+
+Let's write:
+
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+
+const ctx = canvas.getContext('2d')!;
+
+const scoreDiv = document.getElementById('score') as HTMLDivElement;
+
+const gameOverDiv = document.getElementById('gameOver') as HTMLDivElement;
+
+const cellSize = 20;
+
+const gridSize = canvas.width / cellSize; // 20
+
+let snake: Position[] = [{x: 9, y: 9}];
+
+let direction: Direction = Direction.Right;
+
+let food: Position = generateFood();
+
+let score: number = 0;
+
+let gameRunning = true;
+
+function generateFood(): Position { ... }
+
+function moveSnake(): void { ... }
+
+function checkCollision(pos: Position): boolean { ... }
+
+function draw(): void { ... }
+
+function gameLoop(): void { ... }
+
+Add event listener for keydown.
+
+Add requestAnimationFrame loop.
+
+Game over: set gameRunning false, show gameOverDiv.
+
+Update scoreDiv.
+
+Let's implement.
+
+We need to ensure no implicit any: all variables typed.
+
+Also avoid using any in event listener: e: KeyboardEvent.
+
+Also avoid using any in setTimeout? Not needed.
+
+We need to ensure no implicit any in functions: e.g., function generateFood(): Position { ... }
+
+Now implement generateFood: random x,y between 0 and gridSize-1, not on snake.
+
+Check while loop.
+
+Check collision: if pos.x < 0 or >= gridSize or pos.y < 0 or >= gridSize or snake.some(s => s.x === pos.x && s.y === pos.y).
+
+Move snake: compute new head based on direction. Push new head. If new head equals food, increment score, generate new food, else pop tail.
+
+Check collision: if collision, game over.
+
+Draw: clear canvas, draw food, draw snake.
+
+Game loop: if gameRunning, moveSnake, draw, requestAnimationFrame.
+
+Add event listener: arrow keys: e.key === 'ArrowUp', etc. Update direction if not opposite.
+
+Opposite direction check: if direction === Direction.Up && newDir === Direction.Down => ignore.
+
+Define function isOpposite(d1: Direction, d2: Direction): boolean.
+
+Now implement.
+
+Also ensure strict mode: no implicit any.
+
+Also we need to compile with ES2022 modules. So we can use top-level code.
+
+Let's write code.
+
+Also we need to ensure we don't use any global variables that are not typed.
+
+Ok.
+
+Let's produce final code.
+

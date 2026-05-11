@@ -1,0 +1,80 @@
+We need to fix issues:
+
+1. Use plain script tag (no type="module") with defer. So<script src="snake.js" defer></script>
+
+2. Ensure game loop starts automatically: we need to call requestAnimationFrame(loop) after setting up. Already there. But need to ensure that loop runs even if no input. The issue: they said canvas not animating without user input; maybe because they set lastRender = 0 and update checks delta< 100 returns early and requestAnimationFrame(update) again; but they call loop which calls update then draw then requestAnimationFrame(loop) if not gameOver. That should work. However they also have requestAnimationFrame(update) inside update when delta < 100, which could cause infinite recursion? Actually they call requestAnimationFrame(update) again, not loop. That could cause update to be called without draw, leading to no rendering. Better to have a single loop that calls update and draw each frame, using a fixed timestep or using delta time.
+
+Simplify: Use requestAnimationFrame loop that updates based on time elapsed, using a constant speed (e.g., move every 100ms). We'll keep lastRender and if enough time passed, update game state, then draw. Always request next frame.
+
+Implementation:
+
+let lastRender = 0;
+function loop(timestamp) {
+  const delta = timestamp - lastRender;
+  if (delta >= 100) {
+    lastRender = timestamp;
+    update();
+  }
+  draw();
+  if (!gameOver) requestAnimationFrame(loop);
+}
+
+But need to ensure update uses direction and nextDirection.
+
+Also need to ensure snake starts not hitting wall: initial snake at {x:10, y:10} within 400/20=20 cells (0-19). That's fine.
+
+Need to ensure keydown listener attached to window.
+
+Also need to avoid any implicit any: need to type event handler parameter as KeyboardEvent.
+
+Also need to ensure that canvas width/height are set as numbers; we already set in HTML but also in TS we set again.
+
+Potential issue: In TS we need to cast canvas to HTMLCanvasElement; we already did.
+
+Need to ensure no 'any' types: we have interface Point, fine. Variables like snake: Point[] etc. direction: Point. nextDirection: Point. food: Point. score: number. gameOver: boolean. lastRender: number. All typed.
+
+In update function we need to avoid any: we have parameter timestamp: number.
+
+In loop function we need timestamp: number.
+
+In keydown listener: (e: KeyboardEvent) => { ... }
+
+Also need to ensure we don't use 'any' in forEach callbacks: snake.forEach(seg => { ... }) where seg is inferred as Point (since snake is Point[]). Good.
+
+Potential issue: In generateFood we call recursively; fine.
+
+Now ensure that we compile with tsc --target ES2022 --module ES2022 --strict.
+
+We need to output snake.ts content.
+
+Now produce final answer: two fenced code blocks.
+
+Let's craft index.html:
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snake Game</title><style>
+    canvas { display: block; margin: 20px auto; background: #111; }
+  </style>
+</head>
+<body><h1>Snake Game</h1><p>Score: <span id="score">0</span></p>
+  <canvas id="gameCanvas" width="400" height="400"></canvas><script src="snake.js" defer></script></body>
+</html>
+
+Now snake.ts:
+
+We'll implement as described.
+
+Potential improvements: update score display in HTML as well? The requirement says visible "Score" text; we already have both canvas text and HTML span. We'll update the span in update when score changes.
+
+Add: const scoreSpan = document.getElementById('score')!; then inside update when score increments, set scoreSpan.textContent = score.toString();
+
+Now code.
+
+Let's write.
+
+Check for strictNullChecks: we used non-null assertion ! for getElementById; that's okay.
+
+Now produce final answer.

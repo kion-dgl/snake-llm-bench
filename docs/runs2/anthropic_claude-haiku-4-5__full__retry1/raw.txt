@@ -1,0 +1,328 @@
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+    }
+    #score, #high {
+      margin: 5px 0;
+      font-size: 16px;
+    }
+    #game {
+      border: 2px solid #fff;
+      margin: 20px 0;
+      display: block;
+      background: #000;
+    }
+    #help {
+      margin-top: 20px;
+      font-size: 14px;
+      text-align: center;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <div id="score">Score: 0</div>
+  <div id="high">High: 0</div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <div id="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+  <script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;
+const SPEEDUP_DELTA = 10;
+
+class Game {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private scoreEl: HTMLElement;
+  private highEl: HTMLElement;
+
+  private snake: Cell[] = [];
+  private dir: Direction = { x: 1, y: 0 };
+  private pendingDir: Direction | null = null;
+  private food: Cell = { x: 0, y: 0 };
+  private score: number = 0;
+  private high: number = 0;
+  private tickMs: number = INITIAL_TICK_MS;
+  private alive: boolean = true;
+  private started: boolean = false;
+  private paused: boolean = true;
+  private tickHandle: number | null = null;
+
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.canvas = canvas;
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to get canvas context');
+    this.ctx = ctx;
+    this.initializeGame();
+  }
+
+  private initializeGame(): void {
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = true;
+    this.started = false;
+    this.paused = true;
+    this.food = this.spawnFood();
+    this.updateUI();
+    this.render();
+  }
+
+  private spawnFood(): Cell {
+    let food: Cell = { x: 0, y: 0 };
+    let valid = false;
+    while (!valid) {
+      food = { x: Math.floor(Math.random() * GRID), y: Math.floor(Math.random() * GRID) };
+      valid = !this.snake.some(seg => seg.x === food.x && seg.y === food.y);
+    }
+    return food;
+  }
+
+  private updateUI(): void {
+    this.scoreEl.textContent = `Score: ${this.score}`;
+    this.highEl.textContent = `High: ${this.high}`;
+  }
+
+  private render(): void {
+    const ctx = this.ctx;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Draw snake body
+    ctx.fillStyle = '#3aa635';
+    for (let i = 1; i < this.snake.length; i++) {
+      const seg = this.snake[i];
+      ctx.fillRect(seg.x * CELL, seg.y * CELL, CELL, CELL);
+    }
+
+    // Draw snake head
+    ctx.fillStyle = '#7ed957';
+    const head = this.snake[0];
+    ctx.fillRect(head.x * CELL, head.y * CELL, CELL, CELL);
+
+    // Draw food
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+
+    // Draw overlay text
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+
+    if (!this.alive) {
+      ctx.fillText('Game Over — press R to restart', centerX, centerY);
+    } else if (this.paused && !this.started) {
+      ctx.fillText('Press Space to start', centerX, centerY);
+    } else if (this.paused && this.started) {
+      ctx.fillText('Paused', centerX, centerY);
+    }
+  }
+
+  private tick(): void {
+    if (!this.alive || this.paused) return;
+
+    // Apply pending direction if valid
+    if (this.pendingDir) {
+      const isOpposite =
+        this.pendingDir.x === -this.dir.x && this.pendingDir.y === -this.dir.y;
+      if (!isOpposite) {
+        this.dir = this.pendingDir;
+      }
+      this.pendingDir = null;
+    }
+
+    // Move head
+    const head = this.snake[0];
+    const newHead: Cell = {
+      x: head.x + this.dir.x,
+      y: head.y + this.dir.y
+    };
+
+    // Check wall collision
+    if (newHead.x < 0 || newHead.x >= GRID || newHead.y < 0 || newHead.y >= GRID) {
+      this.alive = false;
+      this.render();
+      return;
+    }
+
+    // Check self collision (tail about to vacate is not counted)
+    for (let i = 0; i < this.snake.length - 1; i++) {
+      const seg = this.snake[i];
+      if (newHead.x === seg.x && newHead.y === seg.y) {
+        this.alive = false;
+        this.render();
+        return;
+      }
+    }
+
+    // Move snake
+    this.snake.unshift(newHead);
+
+    // Check food collision
+    if (newHead.x === this.food.x && newHead.y === this.food.y) {
+      this.score++;
+      if (this.score > this.high) {
+        this.high = this.score;
+        localStorage.setItem('snake.high', String(this.high));
+      }
+      this.updateUI();
+
+      // Speed up
+      if (this.score % SPEEDUP_EVERY === 0) {
+        this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+        this.reschedule();
+      }
+
+      this.food = this.spawnFood();
+    } else {
+      this.snake.pop();
+    }
+
+    this.render();
+  }
+
+  private reschedule(): void {
+    if (this.tickHandle !== null) {
+      clearInterval(this.tickHandle);
+    }
+    this.tickHandle = window.setInterval(() => this.tick(), this.tickMs);
+  }
+
+  start(): void {
+    if (this.started) return;
+    this.started = true;
+    this.paused = false;
+    this.reschedule();
+    this.render();
+  }
+
+  togglePause(): void {
+    if (!this.started) {
+      this.start();
+      return;
+    }
+    this.paused = !this.paused;
+    if (!this.paused) {
+      this.reschedule();
+    } else {
+      if (this.tickHandle !== null) {
+        clearInterval(this.tickHandle);
+        this.tickHandle = null;
+      }
+    }
+    this.render();
+  }
+
+  restart(): void {
+    if (this.tickHandle !== null) {
+      clearInterval(this.tickHandle);
+      this.tickHandle = null;
+    }
+    this.initializeGame();
+  }
+
+  handleKeyDown(key: string): void {
+    switch (key) {
+      case 'ArrowUp':
+      case 'w':
+      case 'W':
+        this.pendingDir = { x: 0, y: -1 };
+        break;
+      case 'ArrowDown':
+      case 's':
+      case 'S':
+        this.pendingDir = { x: 0, y: 1 };
+        break;
+      case 'ArrowLeft':
+      case 'a':
+      case 'A':
+        this.pendingDir = { x: -1, y: 0 };
+        break;
+      case 'ArrowRight':
+      case 'd':
+      case 'D':
+        this.pendingDir = { x: 1, y: 0 };
+        break;
+      case ' ':
+        this.togglePause();
+        break;
+      case 'r':
+      case 'R':
+        this.restart();
+        break;
+    }
+  }
+}
+
+// Top-level setup
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const scoreEl = document.getElementById('score') as HTMLElement;
+const highEl = document.getElementById('high') as HTMLElement;
+
+const highScore = localStorage.getItem('snake.high');
+if (highScore) {
+  highEl.textContent = `High: ${highScore}`;
+}
+
+const game = new Game(canvas, scoreEl, highEl);
+
+window.addEventListener('keydown', (e) => {
+  const key = e.key;
+  if (
+    key === 'ArrowUp' ||
+    key === 'ArrowDown' ||
+    key === 'ArrowLeft' ||
+    key === 'ArrowRight' ||
+    key === ' ' ||
+    key.toLowerCase() === 'w' ||
+    key.toLowerCase() === 'a' ||
+    key.toLowerCase() === 's' ||
+    key.toLowerCase() === 'd' ||
+    key.toLowerCase() === 'r'
+  ) {
+    e.preventDefault();
+    game.handleKeyDown(key);
+  }
+});
+```

@@ -1,0 +1,10 @@
+{
+  "model": "qwen3-coder:480b-cloud",
+  "role": "full",
+  "durationMs": 208319,
+  "promptEvalCount": 1386,
+  "evalCount": 2073,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:29:16.262Z",
+  "promptSource": "prompts/snake-spec.md"
+}

@@ -1,0 +1,11 @@
+{
+  "model": "x-ai/grok-code-fast-1",
+  "role": "fixup",
+  "baseRun": "runs2/x-ai_grok-code-fast-1__full",
+  "attempt": 1,
+  "durationMs": 23814,
+  "promptEvalCount": 3955,
+  "evalCount": 2933,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T21:06:06.071Z"
+}

@@ -1,0 +1,16 @@
+{
+  "runDir": "runs2/gemma4_26b__full__retry1",
+  "passed": 0,
+  "total": 2,
+  "score": 0,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": false
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": false
+    }
+  ]
+}

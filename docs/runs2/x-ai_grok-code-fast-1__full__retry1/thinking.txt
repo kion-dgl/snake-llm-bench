@@ -1,0 +1,8 @@
+The TypeScript compilation failed because in the top-level code, I'm trying to access private properties of the Game class: game.started, game.dir, and game.pendingDir.
+titles must start with a Fixing or similar word if appropriate, or present participle verbs like Exploring, Analyzing, etc., - titles must start with present participle verbs unless it'sa fixing-related topic then 시작with Fixing.
+
+Titles must start with present participle verbs unless it'sa fixing-related topic then 시작with Fixing. Typo: 시작with Fixing -> start with Fixing.
+
+Titles must start with present coding verbs present participle verbs unless fixing then Fixing.
+
+Present participle verbs: Exploring, Analyzing, etc. fixing-related: Fixing.

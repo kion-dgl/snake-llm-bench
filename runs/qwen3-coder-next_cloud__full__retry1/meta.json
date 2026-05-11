@@ -1,0 +1,11 @@
+{
+  "model": "qwen3-coder-next:cloud",
+  "role": "fixup",
+  "baseRun": "runs/qwen3-coder-next_cloud__full",
+  "attempt": 1,
+  "durationMs": 24833,
+  "promptEvalCount": 1975,
+  "evalCount": 1671,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:02:11.108Z"
+}

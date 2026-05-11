@@ -1,0 +1,227 @@
+"use strict";
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;
+const SPEEDUP_DELTA = 10;
+class Game {
+    canvas;
+    ctx;
+    scoreEl;
+    highEl;
+    snake;
+    dir;
+    pendingDir;
+    food;
+    score;
+    high;
+    tickMs;
+    alive;
+    started;
+    paused;
+    interval;
+    constructor(canvas, scoreEl, highEl) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.scoreEl = scoreEl;
+        this.highEl = highEl;
+        this.snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+        this.dir = { x: 1, y: 0 };
+        this.pendingDir = null;
+        this.food = this.spawnFood();
+        this.score = 0;
+        this.high = parseInt(localStorage.getItem('snake.high') || '0', 10);
+        this.tickMs = INITIAL_TICK_MS;
+        this.alive = true;
+        this.started = false;
+        this.paused = true;
+        this.interval = null;
+        this.updateUI();
+        this.render();
+    }
+    start() {
+        this.started = true;
+        this.paused = false;
+        this.interval = setInterval(() => this.tick(), this.tickMs);
+    }
+    togglePause() {
+        if (!this.started)
+            return;
+        this.paused = !this.paused;
+        if (this.paused) {
+            if (this.interval !== null) {
+                clearInterval(this.interval);
+                this.interval = null;
+            }
+        }
+        else {
+            this.interval = setInterval(() => this.tick(), this.tickMs);
+        }
+        this.render();
+    }
+    restart() {
+        if (this.interval !== null) {
+            clearInterval(this.interval);
+            this.interval = null;
+        }
+        if (this.score > this.high) {
+            this.high = this.score;
+            localStorage.setItem('snake.high', this.high.toString());
+        }
+        this.snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+        this.dir = { x: 1, y: 0 };
+        this.pendingDir = null;
+        this.food = this.spawnFood();
+        this.score = 0;
+        this.tickMs = INITIAL_TICK_MS;
+        this.alive = true;
+        this.started = false;
+        this.paused = true;
+        this.updateUI();
+        this.render();
+    }
+    isStarted() {
+        return this.started;
+    }
+    getDir() {
+        return this.dir;
+    }
+    setPendingDir(dir) {
+        this.pendingDir = dir;
+    }
+    tick() {
+        if (!this.alive || this.paused)
+            return;
+        if (this.pendingDir) {
+            this.dir = this.pendingDir;
+            this.pendingDir = null;
+        }
+        const head = this.snake[0];
+        const newHead = { x: head.x + this.dir.x, y: head.y + this.dir.y };
+        if (newHead.x < 0 || newHead.x >= GRID || newHead.y < 0 || newHead.y >= GRID) {
+            this.alive = false;
+        }
+        else {
+            const tail = this.snake[this.snake.length - 1];
+            for (let i = 0; i < this.snake.length - 1; i++) {
+                if (this.snake[i].x === newHead.x && this.snake[i].y === newHead.y) {
+                    this.alive = false;
+                    break;
+                }
+            }
+            if (this.alive) {
+                this.snake.unshift(newHead);
+                if (newHead.x === this.food.x && newHead.y === this.food.y) {
+                    this.score++;
+                    this.food = this.spawnFood();
+                    if (this.score % SPEEDUP_EVERY === 0) {
+                        this.tickMs = Math.max(MIN_TICK_MS, this.tickMs - SPEEDUP_DELTA);
+                        if (this.interval !== null) {
+                            clearInterval(this.interval);
+                            this.interval = setInterval(() => this.tick(), this.tickMs);
+                        }
+                    }
+                    this.updateUI();
+                }
+                else {
+                    this.snake.pop();
+                }
+            }
+        }
+        if (!this.alive) {
+            if (this.interval !== null) {
+                clearInterval(this.interval);
+                this.interval = null;
+            }
+        }
+        this.render();
+    }
+    spawnFood() {
+        let x, y;
+        do {
+            x = Math.floor(Math.random() * GRID);
+            y = Math.floor(Math.random() * GRID);
+        } while (this.snake.some(cell => cell.x === x && cell.y === y));
+        return { x, y };
+    }
+    updateUI() {
+        this.scoreEl.textContent = `Score: ${this.score}`;
+        this.highEl.textContent = `High: ${this.high}`;
+    }
+    render() {
+        this.ctx.fillStyle = '#000';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = '#3aa635';
+        for (let i = 1; i < this.snake.length; i++) {
+            this.ctx.fillRect(this.snake[i].x * CELL, this.snake[i].y * CELL, CELL, CELL);
+        }
+        this.ctx.fillStyle = '#7ed957';
+        this.ctx.fillRect(this.snake[0].x * CELL, this.snake[0].y * CELL, CELL, CELL);
+        this.ctx.fillStyle = '#c0392b';
+        this.ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+        if (!this.started && this.paused) {
+            this.drawText('Press Space to start');
+        }
+        else if (this.started && this.paused) {
+            this.drawText('Paused');
+        }
+        else if (!this.alive) {
+            this.drawText('Game Over — press R to restart');
+        }
+    }
+    drawText(text) {
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = '20px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(text, this.canvas.width / 2, this.canvas.height / 2);
+    }
+}
+const canvas = document.getElementById('game');
+const scoreEl = document.getElementById('score');
+const highEl = document.getElementById('high');
+const game = new Game(canvas, scoreEl, highEl);
+window.addEventListener('keydown', (e) => {
+    let newDir = null;
+    switch (e.key) {
+        case 'ArrowUp':
+        case 'w':
+        case 'W':
+            newDir = { x: 0, y: -1 };
+            break;
+        case 'ArrowDown':
+        case 's':
+        case 'S':
+            newDir = { x: 0, y: 1 };
+            break;
+        case 'ArrowLeft':
+        case 'a':
+        case 'A':
+            newDir = { x: -1, y: 0 };
+            break;
+        case 'ArrowRight':
+        case 'd':
+        case 'D':
+            newDir = { x: 1, y: 0 };
+            break;
+        case ' ':
+            if (!game.isStarted()) {
+                game.start();
+            }
+            else {
+                game.togglePause();
+            }
+            break;
+        case 'r':
+        case 'R':
+            game.restart();
+            break;
+        default:
+            return;
+    }
+    if (newDir && !(newDir.x === -game.getDir().x && newDir.y === -game.getDir().y)) {
+        game.setPendingDir(newDir);
+    }
+    e.preventDefault();
+});

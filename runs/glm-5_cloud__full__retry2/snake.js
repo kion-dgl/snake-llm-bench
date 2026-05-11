@@ -1,0 +1,172 @@
+// snake.ts
+// Constants
+const GRID_SIZE = 20;
+const CANVAS_WIDTH = 400;
+const CANVAS_HEIGHT = 400;
+const TILE_COUNT = CANVAS_WIDTH / GRID_SIZE;
+const GAME_SPEED = 100; // Milliseconds per frame
+// Game State
+let snake = [];
+let food = { x: 0, y: 0 };
+let direction = 'RIGHT';
+let nextDirection = 'RIGHT';
+let score = 0;
+let isGameOver = false;
+let gameInterval = 0;
+// DOM Elements
+// Using non-null assertion operator '!' to satisfy strictNullChecks.
+// We assume the HTML structure is correct as per the provided HTML file.
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreElement = document.getElementById('score');
+/**
+ * Initializes the game state and starts the game loop.
+ */
+function initGame() {
+    snake = [
+        { x: 10, y: 10 },
+        { x: 9, y: 10 },
+        { x: 8, y: 10 }
+    ];
+    direction = 'RIGHT';
+    nextDirection = 'RIGHT';
+    score = 0;
+    isGameOver = false;
+    updateScoreDisplay();
+    placeFood();
+    if (gameInterval) {
+        window.clearInterval(gameInterval);
+    }
+    gameInterval = window.setInterval(gameLoop, GAME_SPEED);
+}
+/**
+ * The main game loop called at regular intervals.
+ */
+function gameLoop() {
+    if (isGameOver) {
+        return;
+    }
+    update();
+    draw();
+}
+/**
+ * Updates the game state (movement, collisions).
+ */
+function update() {
+    direction = nextDirection;
+    const head = { ...snake[0] };
+    switch (direction) {
+        case 'UP':
+            head.y -= 1;
+            break;
+        case 'DOWN':
+            head.y += 1;
+            break;
+        case 'LEFT':
+            head.x -= 1;
+            break;
+        case 'RIGHT':
+            head.x += 1;
+            break;
+    }
+    // Wall Collision
+    if (head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT) {
+        endGame();
+        return;
+    }
+    // Self Collision
+    for (const segment of snake) {
+        if (head.x === segment.x && head.y === segment.y) {
+            endGame();
+            return;
+        }
+    }
+    snake.unshift(head);
+    // Food Collision
+    if (head.x === food.x && head.y === food.y) {
+        score += 10;
+        updateScoreDisplay();
+        placeFood();
+    }
+    else {
+        snake.pop();
+    }
+}
+/**
+ * Renders the game to the canvas.
+ */
+function draw() {
+    // Clear Canvas
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    // Draw Food
+    ctx.fillStyle = 'red';
+    ctx.fillRect(food.x * GRID_SIZE, food.y * GRID_SIZE, GRID_SIZE - 2, GRID_SIZE - 2);
+    // Draw Snake
+    ctx.fillStyle = '#00FF00';
+    for (const segment of snake) {
+        ctx.fillRect(segment.x * GRID_SIZE, segment.y * GRID_SIZE, GRID_SIZE - 2, GRID_SIZE - 2);
+    }
+    // Draw Game Over text
+    if (isGameOver) {
+        ctx.fillStyle = 'white';
+        ctx.font = '30px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Game Over', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+    }
+}
+/**
+ * Places food at a random position not occupied by the snake.
+ */
+function placeFood() {
+    while (true) {
+        const x = Math.floor(Math.random() * TILE_COUNT);
+        const y = Math.floor(Math.random() * TILE_COUNT);
+        let onSnake = false;
+        for (const segment of snake) {
+            if (segment.x === x && segment.y === y) {
+                onSnake = true;
+                break;
+            }
+        }
+        if (!onSnake) {
+            food = { x, y };
+            break;
+        }
+    }
+}
+/**
+ * Updates the score display in the DOM.
+ */
+function updateScoreDisplay() {
+    scoreElement.innerText = score.toString();
+}
+/**
+ * Handles the Game Over state.
+ */
+function endGame() {
+    isGameOver = true;
+    draw(); // Draw one last time to show the collision state and Game Over text
+}
+/**
+ * Handles keyboard input.
+ */
+function handleKeyDown(e) {
+    const key = e.key;
+    if (key === 'ArrowUp' && direction !== 'DOWN') {
+        nextDirection = 'UP';
+    }
+    else if (key === 'ArrowDown' && direction !== 'UP') {
+        nextDirection = 'DOWN';
+    }
+    else if (key === 'ArrowLeft' && direction !== 'RIGHT') {
+        nextDirection = 'LEFT';
+    }
+    else if (key === 'ArrowRight' && direction !== 'LEFT') {
+        nextDirection = 'RIGHT';
+    }
+}
+// Setup input listener
+window.addEventListener('keydown', handleKeyDown);
+// Start the game
+initGame();

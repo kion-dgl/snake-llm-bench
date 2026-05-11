@@ -1,0 +1,9 @@
+{
+  "model": "deepseek-v4-pro:cloud",
+  "role": "full",
+  "planFrom": null,
+  "durationMs": 196218,
+  "promptEvalCount": 182,
+  "evalCount": 4231,
+  "timestamp": "2026-05-11T13:15:22.883Z"
+}

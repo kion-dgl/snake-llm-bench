@@ -1,0 +1,11 @@
+{
+  "model": "nemotron-3-super:cloud",
+  "role": "fixup",
+  "baseRun": "runs2/nemotron-3-super_cloud__full",
+  "attempt": 1,
+  "durationMs": 25605,
+  "promptEvalCount": 4227,
+  "evalCount": 3831,
+  "doneReason": "stop",
+  "timestamp": "2026-05-11T15:36:55.399Z"
+}

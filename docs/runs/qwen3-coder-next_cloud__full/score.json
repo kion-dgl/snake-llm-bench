@@ -1,0 +1,21 @@
+{
+  "runDir": "runs/qwen3-coder-next_cloud__full",
+  "total": 3,
+  "passed": 2,
+  "score": 0.6666666666666666,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": false,
+      "detail": "runs/qwen3-coder-next_cloud__full/snake.ts(19,13): error TS2564: Property 'food' has no initializer and is not definitely assigned in the constructor.\nruns/qwen3-coder-next_cloud__full/snake.ts(30,48): error TS2304: Cannot find name 'thisgridSize'."
+    }
+  ]
+}

@@ -1,0 +1,168 @@
+You wrote this Snake game in vanilla TypeScript + HTML5 Canvas.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snake Game</title>
+  <style>
+    canvas { display: block; margin: 20px auto; background: #111; }
+  </style>
+</head>
+<body>
+  <h1>Snake Game</h1>
+  <p>Score: <span id="score">0</span></p>
+  <canvas id="gameCanvas" width="400" height="400"></canvas>
+  <script src="snake.js" defer type="module"></script>
+</body>
+</html>
+```
+
+```typescript
+interface Point {
+  x: number;
+  y: number;
+}
+
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+const ctx = canvas.getContext('2d')!;
+const gridSize = 20;
+const width = canvas.width;
+const height = canvas.height;
+
+let snake: Point[] = [{ x: 10, y: 10 }];
+let direction: Point = { x: 1, y: 0 };
+let nextDirection: Point = direction;
+let food: Point = { x: 0, y: 0 };
+let score = 0;
+let gameOver = false;
+let lastRender = 0;
+
+function generateFood(): void {
+  food = {
+    x: Math.floor(Math.random() * (width / gridSize)),
+    y: Math.floor(Math.random() * (height / gridSize))
+  };
+  if (snake.some(p => p.x === food.x && p.y === food.y)) {
+    generateFood();
+  }
+}
+
+function update(timestamp: number): void {
+  if (gameOver) return;
+  const delta = timestamp - lastRender;
+  if (delta < 100) {
+    requestAnimationFrame(update);
+    return;
+  }
+  lastRender = timestamp;
+  direction = nextDirection;
+  const head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+
+  if (
+    head.x < 0 ||
+    head.x >= width / gridSize ||
+    head.y < 0 ||
+    head.y >= height / gridSize
+  ) {
+    gameOver = true;
+    return;
+  }
+  if (snake.some(seg => seg.x === head.x && seg.y === head.y)) {
+    gameOver = true;
+    return;
+  }
+
+  snake.unshift(head);
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    generateFood();
+  } else {
+    snake.pop();
+  }
+}
+
+function draw(): void {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = '#0f0';
+  snake.forEach(seg => {
+    ctx.fillRect(seg.x * gridSize, seg.y * gridSize, gridSize - 1, gridSize - 1);
+  });
+
+  ctx.fillStyle = '#f00';
+  ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 1, gridSize - 1);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '16px sans-serif';
+  ctx.fillText(`Score: ${score}`, 10, 20);
+}
+
+function loop(timestamp: number): void {
+  update(timestamp);
+  draw();
+  if (!gameOver) {
+    requestAnimationFrame(loop);
+  } else {
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px sans-serif';
+    ctx.fillText('Game Over', width / 2 - 50, height / 2);
+    ctx.fillText(`Final Score: ${score}`, width / 2 - 70, height / 2 + 30);
+  }
+}
+
+canvas.width = 400;
+canvas.height = 400;
+generateFood();
+requestAnimationFrame(loop);
+
+window.addEventListener('keydown', (e: KeyboardEvent) => {
+  switch (e.key) {
+    case 'ArrowUp':
+      if (direction.y !== 0) nextDirection = { x: 0, y: -1 };
+      break;
+    case 'ArrowDown':
+      if (direction.y !== 0) nextDirection = { x: 0, y: 1 };
+      break;
+    case 'ArrowLeft':
+      if (direction.x !== 0) nextDirection = { x: -1, y: 0 };
+      break;
+    case 'ArrowRight':
+      if (direction.x !== 0) nextDirection = { x: 1, y: 0 };
+      break;
+  }
+});
+```
+
+Automated testing found these problems:
+
+- Console / page errors at runtime:
+```
+Access to script at 'file:///home/kion/Github/ollma/runs/nemotron-3-super_cloud__full/snake.js' from origin 'null' has been blocked by CORS policy: Cross origin requests are only supported for protocol schemes: chrome, chrome-untrusted, data, http, https. | Failed to load resource: net::ERR_FAILED
+```
+  (Common cause: `<script type="module">` blocks `file://` loads via CORS — use a plain script tag.)
+
+- The canvas is NOT animating without user input (pixel hash unchanged over ~300ms). Your game loop is missing or paused; the snake must move continuously via setInterval/requestAnimationFrame from the moment the page loads.
+
+- Pressing arrow keys does not change the canvas. Either the keydown listener is missing, attached to the wrong element, or the game has already ended (e.g. snake immediately hit a wall). Listen on `window` or `document`, and start the snake away from the walls.
+
+Fix every problem and re-emit the complete files. Same constraints as before:
+- Two files: `index.html` and `snake.ts`.
+- `<script src="snake.js" defer></script>` exactly — do not use `type="module"`.
+- `snake.ts` must compile cleanly with `tsc --target ES2022 --module ES2022 --strict` (no type errors, no implicit any, satisfies `strictPropertyInitialization` and `strictNullChecks`).
+- Arrow keys to control. Visible "Score" text. Game-over on wall or self collision. Snake must keep moving without input (continuous game loop).
+- Browser globals only. No imports. No `type="module"`.
+
+Output exactly two fenced code blocks, in this order, nothing else:
+
+```html
+<!-- index.html content -->
+```
+
+```typescript
+// snake.ts content
+```

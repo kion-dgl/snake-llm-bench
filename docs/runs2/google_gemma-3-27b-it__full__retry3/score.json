@@ -1,0 +1,37 @@
+{
+  "runDir": "runs2/google_gemma-3-27b-it__full__retry3",
+  "total": 7,
+  "passed": 6,
+  "score": 0.8571428571428571,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "score_label_present",
+      "pass": true
+    },
+    {
+      "name": "high_label_present",
+      "pass": true
+    },
+    {
+      "name": "class_game_present",
+      "pass": true
+    },
+    {
+      "name": "snake_high_key_present",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": false,
+      "detail": "runs2/google_gemma-3-27b-it__full__retry3/snake.ts(100,23): error TS2345: Argument of type 'number | null' is not assignable to parameter of type 'number | undefined'.\n  Type 'null' is not assignable to type 'number | undefined'."
+    }
+  ]
+}
