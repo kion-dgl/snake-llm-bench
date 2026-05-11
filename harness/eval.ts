@@ -1,5 +1,6 @@
 import { generate as ollamaGenerate, slugifyModel } from "./ollama.ts";
 import { generate as openrouterGenerate } from "./openrouter.ts";
+import { generate as lmstudioGenerate } from "./lmstudio.ts";
 import { PLAN_PROMPT, CODE_PROMPT_TEMPLATE, FULL_PROMPT, extractCode } from "./prompts.ts";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -7,6 +8,7 @@ import { join } from "node:path";
 function pickProvider(model: string, explicit?: string) {
   if (explicit === "openrouter") return openrouterGenerate;
   if (explicit === "ollama") return ollamaGenerate;
+  if (explicit === "lmstudio") return lmstudioGenerate;
   // auto-detect: openrouter model names contain `/`; ollama use `:` or no separator
   if (model.includes("/")) return openrouterGenerate;
   return ollamaGenerate;

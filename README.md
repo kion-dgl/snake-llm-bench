@@ -76,7 +76,10 @@ The harness dispatches by model name:
 |---|---|---|
 | `model:tag-cloud` or `model:tag` | local Ollama daemon at `localhost:11434` | none (or `ollama signin` for cloud-plan models) |
 | `org/model` (contains `/`) | OpenRouter | `OPENROUTER_API_KEY` in `.env` |
+| `PROVIDER=lmstudio` env override | LM Studio at `localhost:1234` (or `LMSTUDIO_URL`) | none |
 | (via `harness/claude-run.ts`) | Anthropic via `claude -p` CLI | OAuth via Claude Code |
+
+**Why LM Studio**: useful on hardware where Ollama struggles to engage the GPU. LM Studio uses Vulkan by default, which tends to "just work" on AMD APUs and consumer Radeons where Ollama's ROCm path doesn't auto-detect. Force max GPU offload with `lms load <model> --gpu max`.
 
 Reasoning controls (gpt-oss / kimi-k2.6 etc.) are read from env vars: `OLLAMA_REASONING_EFFORT=low`, `OLLAMA_NUM_PREDICT=16384`, `OLLAMA_NUM_CTX=16384`. See `harness/ollama.ts:14-22`.
 

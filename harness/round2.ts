@@ -1,5 +1,6 @@
 import { generate as ollamaGenerate, slugifyModel } from "./ollama.ts";
 import { generate as openrouterGenerate } from "./openrouter.ts";
+import { generate as lmstudioGenerate } from "./lmstudio.ts";
 import { extractCode } from "./prompts.ts";
 import { scoreRunV2 } from "./score-round2.ts";
 import { spawn } from "node:child_process";
@@ -7,6 +8,9 @@ import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 function pickProvider(model: string) {
+  // round2 driver auto-detects: explicit --provider not supported here
+  // (use the eval.ts driver if you need to force lmstudio for a slash-free model name)
+  if (process.env.PROVIDER === "lmstudio") return lmstudioGenerate;
   return model.includes("/") ? openrouterGenerate : ollamaGenerate;
 }
 

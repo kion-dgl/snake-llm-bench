@@ -1,10 +1,12 @@
 import { generate as ollamaGenerate } from "./ollama.ts";
 import { generate as openrouterGenerate } from "./openrouter.ts";
+import { generate as lmstudioGenerate } from "./lmstudio.ts";
 import { FIXUP_PROMPT_TEMPLATE, extractCode } from "./prompts.ts";
 import { scoreRun } from "./score.ts";
 import { scoreRunV2 } from "./score-round2.ts";
 
 function pickProvider(model: string) {
+  if (process.env.PROVIDER === "lmstudio") return lmstudioGenerate;
   return model.includes("/") ? openrouterGenerate : ollamaGenerate;
 }
 import { mkdir, writeFile, readFile, stat } from "node:fs/promises";
