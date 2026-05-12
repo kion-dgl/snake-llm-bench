@@ -6,13 +6,68 @@ Small benchmark comparing 20+ LLMs on the same task: build a vanilla TypeScript 
 
 ## Headline findings
 
-- **The "is Claude worth it?" gap is small and lives in the ambiguous-prompt regime.** On a tight spec (Round 2), `gemini-2.5-flash`, `mistral-large-3:675b`, `grok-4.3`, `claude-opus`, `gpt-5-mini`, `gemma-4-26b`, `kimi-k2.6`, and `gpt-oss:20b` all pass 13/13 first try. The gap appears only when the prompt is under-specified.
+- **The "is Claude worth it?" gap is small and lives in the ambiguous-prompt regime.** On a tight spec (Round 2), `gemini-2.5-flash`, `mistral-large-3:675b`, `grok-4.3`, `claude-opus`, `gpt-5-mini`, `gemma-4-26b`, `kimi-k2.6`, `deepseek-v4-pro`, `gpt-oss:120b`, `gpt-oss:20b`, and `gpt-5-codex` all pass 13/13 first try. The gap appears only when the prompt is under-specified.
 - **`gpt-oss:20b` matches the cloud-class models on quality when given a strict spec.** Speed is the only cost — minutes on CPU, seconds on GPU. If your workflow includes spec-writing, a 16GB-VRAM machine is enough.
 - **Reasoning models lose on ambiguous tasks, win on strict ones.** Kimi-k2.6, deepseek-v4-pro, gpt-5-codex failed or struggled on Round 1's loose prompt. On Round 2 they passed first try. The detail of the spec is the discriminator.
 - **One retry round closes almost every failure.** 8 of 10 models that failed Round 1's compile check fixed themselves when sent the error log back. The first-pass gap is care, not capability.
-- **Two exceptions don't recover.** `qwen3-coder-next` (a generation artifact — emits literal token-fusion typos like `thisgridSize`) and `gemma-3-27b-it` (consistent `null`/`undefined` confusion) failed even after 3 retries with the full spec.
+- **Three exceptions don't recover.** `qwen3-coder-next` (a generation artifact — emits literal token-fusion typos like `thisgridSize`), `gemma-3-27b-it` (consistent `null`/`undefined` confusion), and the local `gemma4:26b` at ollama's default Q4_K_M quantization (16k tokens of garbage, never emits valid code) failed even after 3 retries with the full spec.
 
 See the [live results page](https://kion-dgl.github.io/snake-llm-bench/) for the full standings.
+
+## Results
+
+### Round 1 — ambiguous prompt (9 automated checks)
+
+| Model | First-try | After retries | Retries used | Total time | Total tokens |
+|---|---|---|---|---|---|
+| claude-opus (CLI) | **9/9** | 9/9 | 0 | 18s | 1.8k |
+| mistral-large-3:675b-cloud | **9/9** | 9/9 | 0 | 20s | 1.3k |
+| gpt-oss:120b-cloud | **9/9** | 9/9 | 0 | 29s | 2.1k |
+| qwen3-coder:480b-cloud | **9/9** | 9/9 | 0 | 128s | 1.4k |
+| claude-opus-4-7 (hand-written) | **9/9** | 9/9 | 0 | — | — |
+| gemma4:31b-cloud | 8/9 | 9/9 | 1 | 91s | 3.0k |
+| nemotron-3-super:cloud | 6/9 | 9/9 | 1 | 30s | 5.0k |
+| qwen3-coder-next:cloud | 2/9 | 9/9 | 1 | 44s | 3.3k |
+| deepseek-v4-pro:cloud | 2/9 | 9/9 | 1 | 346s | 9.0k |
+| kimi-k2.6:cloud | 2/9 | 9/9 | 1 | 273s | 17.6k |
+| gpt-oss:20b (local CPU) | 7/9 | 9/9 | 2 | 1785s | 14.6k |
+| glm-5:cloud | 0/9 | 9/9 | 2 | 644s | 22.8k |
+| google/gemma-3-27b-it | 7/9 | 7/9 | — *(no fixup attempted; round 1 done before OpenRouter integration)* | 35s | 0.9k |
+| qwen3-coder:30b (local CPU) | 0/2 | **0/2** | gave up after 5 — only ever emits HTML block, never TS | 87s × 6 | 1.5k each |
+
+### Round 2 — strict spec (13 automated checks)
+
+| Model | First-try | After retries | Retries used | Total time | Total tokens |
+|---|---|---|---|---|---|
+| google/gemini-2.5-flash | **13/13** | 13/13 | 0 | 10s | 2.7k |
+| x-ai/grok-4.3 | **13/13** | 13/13 | 0 | 23s | 2.6k |
+| claude-opus (CLI) | **13/13** | 13/13 | 0 | 26s | 3.3k |
+| mistral-large-3:675b-cloud | **13/13** | 13/13 | 0 | 31s | 2.2k |
+| gpt-oss:120b-cloud | **13/13** | 13/13 | 0 | 46s | 3.7k |
+| openai/gpt-5-mini | **13/13** | 13/13 | 0 | 48s | 4.6k |
+| google/gemma-4-26b-a4b-it | **13/13** | 13/13 | 0 | 79s | 2.7k |
+| kimi-k2.6:cloud | **13/13** | 13/13 | 0 | 191s | 3.3k |
+| deepseek-v4-pro:cloud | **13/13** | 13/13 | 0 | 245s | 7.7k |
+| openai/gpt-5-codex | **13/13** | 13/13 | 0 | 299s | 48.6k |
+| gpt-oss:20b (local CPU) | **13/13** | 13/13 | 0 | 762s | 6.1k |
+| anthropic/claude-haiku-4-5 | 6/7 | 13/13 | 1 | 25s | 5.8k |
+| meta-llama/llama-4-scout | 6/7 | 13/13 | 1 | 36s | 4.0k |
+| gemma4:31b-cloud | 6/7 | 13/13 | 1 | 40s | 4.7k |
+| x-ai/grok-code-fast-1 | 6/7 | 13/13 | 1 | 46s | 6.6k |
+| glm-5:cloud | 0/2 | 13/13 | 1 | 261s | 32.4k |
+| qwen3-coder:480b-cloud | 6/7 | 13/13 | 1 | 474s | 4.2k |
+| nemotron-3-super:cloud | 6/7 | 13/13 | 2 | 150s | 13.4k |
+| google/gemma-3-27b-it | 6/7 | **6/7** | gave up after 3 — recurring `null`/`undefined` confusion | 286s | 9.1k |
+| qwen3-coder-next:cloud | 6/7 | **6/7** | gave up after 3 — recurring generation artifacts | 295s | 8.2k |
+| gemma4:26b (local CPU, Q4_K_M) | 0/2 | **0/2** | gave up after 3 — 16k tokens of garbage each attempt | 7322s | 65.5k |
+
+### Reading the tables
+
+- **First-try** is the score on a single shot, no error feedback.
+- **After retries** is the final score after up to N rounds of `harness/fixup.ts` sending compile/runtime errors back to the same model.
+- **Total time / total tokens** sum across all attempts (base + retries).
+- Local CPU runs are on a minipc with no GPU offload — wall-clock not comparable to cloud rows. The token counts and scores are.
+- The two `claude-opus` rows differ in methodology: the CLI version is `claude -p --output-format json`; the hand-written one (`claude-opus-4-7`) was authored in an interactive Claude Code session and exists as a quality reference, not a timing measurement.
 
 ## Methodology
 
