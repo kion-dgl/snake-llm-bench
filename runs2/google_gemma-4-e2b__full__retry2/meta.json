@@ -1,0 +1,11 @@
+{
+  "model": "google/gemma-4-e2b",
+  "role": "fixup",
+  "baseRun": "runs2/google_gemma-4-e2b__full",
+  "attempt": 2,
+  "durationMs": 159713,
+  "promptEvalCount": null,
+  "evalCount": null,
+  "doneReason": "stop",
+  "timestamp": "2026-05-13T11:51:07.597Z"
+}

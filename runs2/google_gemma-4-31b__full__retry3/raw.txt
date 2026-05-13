@@ -1,0 +1,175 @@
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake</title>
+  <style>
+    body {
+      background-color: #111;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      height: 100vh;
+    }
+    h1 { margin: 10px 0; }
+    #game {
+      background-color: #000;
+      border: 2px solid #fff;
+      display: block;
+    }
+    .info { margin: 5px 0; font-size: 18px; }
+    .help { margin-top: 10px; font-size: 14px; color: #aaa; }
+  </style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <div id="score" class="info">Score: 0</div>
+  <div id="high" class="info">High: 0</div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <div class="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+  <script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;       // apples
+const SPEEDUP_DELTA = 10;      // ms
+
+class Game {
+  private ctx: CanvasRenderingContext2D;
+  private snake: Cell[];
+  private dir: Direction;
+  private pendingDir: Direction | null = null;
+  private food: Cell;
+  private score: number = 0;
+  private high: number = 0;
+  private tickMs: number = INITIAL_TICK_MS;
+  private alive: boolean = true;
+  private started: boolean = false;
+  private paused: boolean = true;
+  private timerId: number | null = null;
+
+  private scoreEl: HTMLElement;
+  private highEl: HTMLElement;
+
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.ctx = canvas.getContext('2d')!;
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+
+    const savedHigh = localStorage.getItem('snake.high');
+    this.high = savedHigh ? parseInt(savedHigh, 10) : 0;
+    this.updateScoreUI();
+
+    this.init();
+  }
+
+  private init(): void {
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = true;
+    this.started = false;
+    this.paused = true;
+    this.spawnFood();
+    this.updateScoreUI();
+    this.draw();
+  }
+
+  private spawnFood(): void {
+    while (true) {
+      const newFood = {
+        x: Math.floor(Math.random() * GRID),
+        y: Math.floor(Math.random() * GRID)
+      };
+      if (!this.snake.some(seg => seg.x === newFood.x && seg.y === newFood.y)) {
+        this.food = newFood;
+        break;
+      }
+    }
+  }
+
+  private updateScoreUI(): void {
+    this.scoreEl.textContent = `Score: ${this.score}`;
+    this.highEl.textContent = `High: ${this.high}`;
+  }
+
+  public start(): void {
+    if (!this.started) {
+      this.started = true;
+      this.paused = false;
+      this.loop();
+    }
+  }
+
+  public togglePause(): void {
+    if (!this.started) return;
+    this.paused = !this.paused;
+    if (!this.paused) this.loop();
+  }
+
+  public restart(): void {
+    if (this.timerId) clearTimeout(this.timerId);
+    this.init();
+  }
+
+  private loop(): void {
+    if (!this.alive || this.paused) return;
+
+    this.update();
+    this.draw();
+
+    this.timerId = window.setTimeout(() => this.loop(), this.tickMs);
+  }
+
+  private update(): void {
+    // Apply pending direction to prevent 180 turns in one tick
+    if (this.pendingDir) {
+      this.dir = this.pendingDir;
+      this.pendingDir = null;
+    }
+
+    const head = { ...this.snake[0] };
+    head.x += this.dir.x;
+    head.y += this.dir.y;
+
+    // Wall collision
+    if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) {
+      this.gameOver();
+      return;
+    }
+
+    // Self collision (ignore tail as it vacates)
+    for (let i = 0; i < this.snake.length - 1; i++) {
+      if (head.x === this.snake[i].x && head.y === this.snake[i].y) {
+        this.gameOver();
+        return;
+      }
+    }
+
+    this.snake.unshift(head);
+
+    // Apple collision
+    if (head.x === this.food.x && head.y === this.food.y) {
+      this.score++;
+      if (this

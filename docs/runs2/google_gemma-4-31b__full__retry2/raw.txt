@@ -1,0 +1,179 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake</title>
+  <style>
+    body {
+      background-color: #111;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      height: 100vh;
+    }
+    h1 { margin: 10px 0; }
+    #score, #high { font-size: 18px; margin: 2px 0; }
+    canvas {
+      background-color: #000;
+      border: 2px solid #fff;
+      display: block;
+    }
+    .help {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #ccc;
+    }
+  </style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <div id="score">Score: 0</div>
+  <div id="high">High: 0</div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <div class="help">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+  <script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;       // apples
+const SPEEDUP_DELTA = 10;      // ms
+
+class Game {
+  private ctx: CanvasRenderingContext2D;
+  private scoreEl: HTMLElement;
+  private highEl: HTMLElement;
+  
+  private snake: Cell[];
+  private dir: Direction;
+  private pendingDir: Direction | null = null;
+  private food: Cell;
+  private score: number = 0;
+  private high: number = 0;
+  private tickMs: number = INITIAL_TICK_MS;
+  private alive: boolean = true;
+  private started: boolean = false;
+  private paused: boolean = true;
+  private timerId: number | null = null;
+
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.ctx = canvas.getContext('2d')!;
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+    
+    const savedHigh = localStorage.getItem('snake.high');
+    this.high = savedHigh ? parseInt(savedHigh, 10) : 0;
+    this.updateScoreUI();
+
+    // Initial state
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 };
+    this.food = { x: 0, y: 0 }; // Will be set by spawnFood
+    this.spawnFood();
+    this.draw();
+  }
+
+  private updateScoreUI(): void {
+    this.scoreEl.textContent = `Score: ${this.score}`;
+    this.highEl.textContent = `High: ${this.high}`;
+  }
+
+  private spawnFood(): void {
+    while (true) {
+      const newFood = {
+        x: Math.floor(Math.random() * GRID),
+        y: Math.floor(Math.random() * GRID)
+      };
+      if (!this.snake.some(seg => seg.x === newFood.x && seg.y === newFood.y)) {
+        this.food = newFood;
+        break;
+      }
+    }
+  }
+
+  start(): void {
+    if (this.started) return;
+    this.started = true;
+    this.paused = false;
+    this.loop();
+  }
+
+  togglePause(): void {
+    if (!this.started) {
+      this.start();
+      return;
+    }
+    if (!this.alive) return;
+    this.paused = !this.paused;
+    if (!this.paused) this.loop();
+    this.draw();
+  }
+
+  restart(): void {
+    if (this.timerId) clearTimeout(this.timerId);
+    this.timerId = null;
+    this.snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.score = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = true;
+    this.started = false;
+    this.paused = true;
+    this.spawnFood();
+    this.updateScoreUI();
+    this.draw();
+  }
+
+  setDirection(x: number, y: number): void {
+    // Prevent reverse-into-self
+    if (x === -this.dir.x && y === -this.dir.y) return;
+    if (x === -this.pendingDir?.x && y === -this.pendingDir?.y) return; // Not strictly needed but cleaner
+    this.pendingDir = { x, y };
+  }
+
+  private loop(): void {
+    if (!this.alive || this.paused) return;
+    
+    this.update();
+    this.draw();
+    
+    this.timerId = window.setTimeout(() => this.loop(), this.tickMs);
+  }
+
+  private update(): void {
+    if (this.pendingDir) {
+      this.dir = this.pendingDir;
+      this.pendingDir = null;
+    }
+
+    const head = { ...this.snake[0] };
+    head.x += this.dir.x;
+    head.y += this.dir.y;
+
+    // Wall collision
+    if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) {
+      this.gameOver();
+      return;
+    }
+
+    // Self collision (ignore tail cell that is about to vacate)
+    for (let i = 

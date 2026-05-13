@@ -1,0 +1,309 @@
+```html
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake</title>
+    <style>
+        body {
+            background-color: #111;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        #score, #high {
+            margin: 5px 0;
+        }
+        #game {
+            border: 1px solid #fff; /* Visible border */
+            background-color: #000;
+        }
+        .help-text {
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body >
+    <h1>Snake</h1>
+    <div id="score">Score: 0</div>
+    <div id="high">High: 0</div>
+    <canvas id="game" width="400" height="400"></canvas>
+    <div class="help-text">Arrow keys or WASD to move · Space to start/pause · R to restart</div>
+
+    <script src="snake.js" defer></script>
+</body>
+</html>
+```
+
+```typescript
+type Cell = { x: number; y: number };
+type Direction = { x: number; y: number };
+
+const GRID = 20;
+const CELL = 20;
+const INITIAL_TICK_MS = 150;
+const MIN_TICK_MS = 60;
+const SPEEDUP_EVERY = 5;       // apples
+const SPEEDUP_DELTA = 10;      // ms
+
+class Game {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private scoreEl: HTMLElement;
+  private highEl: HTMLElement;
+
+  // Private state
+  private snake: Cell[];
+  private dir: Direction;
+  private pendingDir: Direction | null;
+  private food: Cell;
+  private score: number;
+  private high: number;
+  private tickMs: number;
+  private alive: boolean;
+  private started: boolean;
+  private paused: boolean;
+
+  constructor(canvas: HTMLCanvasElement, scoreEl: HTMLElement, highEl: HTMLElement) {
+    this.canvas = canvas;
+    // Fix 1: Get context safely. Use '2d' only.
+    this.ctx = canvas.getContext('2d')!; // Assert non-null based on HTML5 standard
+    this.scoreEl = scoreEl;
+    this.highEl = highEl;
+
+    // Initial state setup
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 }; // Initial direction: Right
+    this.pendingDir = null;
+    this.food = { x: 5, y: 5 }; // Placeholder
+    this.score = 0;
+    this.high = 0;
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = false;
+    this.started = false;
+    this.paused = true; // Starts paused
+
+    // Load high score
+    const storedHigh = localStorage.getItem('snake.high');
+    if (storedHigh !== null) {
+      this.high = parseInt(storedHigh, 10);
+    }
+
+    this.setupListeners();
+  }
+
+  private setupListeners(): void {
+    window.addEventListener('keydown', this.handleInput.bind(this));
+  }
+
+  private handleInput(e: KeyboardEvent): void {
+    const newDir = this.getNewDirection(e);
+    if (newDir) {
+      // Reverse-into-self prevention
+      if (newDir.x !== -this.dir.x || newDir.y !== -this.dir.y) {
+        this.pendingDir = newDir;
+      }
+    }
+  }
+
+  private getNewDirection(e: KeyboardEvent): Direction | null {
+    switch (e.key) {
+      case 'ArrowUp':
+      case 'w':
+        return { x: 0, y: -1 };
+      case 'ArrowDown':
+      case 's':
+        return { x: 0, y: 1 };
+      case 'ArrowLeft':
+      case 'a':
+        return { x: -1, y: 0 };
+      case 'ArrowRight':
+      case 'd':
+        return { x: 1, y: 0 };
+      default:
+        return null;
+    }
+  }
+
+  public start(): void {
+    if (!this.started) {
+      // First start action (Space pressed initially)
+      this.started = true;
+      this.paused = false;
+      this.alive = true;
+      this.tickMs = INITIAL_TICK_MS; // Reset speed
+      this.score = 0;
+      this.food = { x: Math.floor(Math.random() * (GRID - this.snake.length - 1)) + 1, y: Math.floor(Math.random() * GRID) + 1 };
+      this.spawnFood();
+    } else if (this.paused) {
+      // Resume game
+      this.paused = false;
+    }
+  }
+
+  public togglePause(): void {
+    if (!this.started) return;
+
+    if (this.alive) {
+        this.paused = !this.paused;
+    }
+  }
+
+  public restart(): void {
+    // Full reset to initial state, paused-before-start
+    this.snake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 }
+    ];
+    this.dir = { x: 1, y: 0 };
+    this.pendingDir = null;
+    this.score = 0;
+    this.high = parseInt(localStorage.getItem('snake.high') || '0', 10);
+    this.tickMs = INITIAL_TICK_MS;
+    this.alive = false;
+    this.started = false;
+    this.paused = true;
+
+    // Redraw initial state immediately
+    this.draw();
+  }
+
+  private spawnFood(): void {
+      // Ensure food is placed on a cell not occupied by the snake
+      let newFood: Cell;
+      do {
+          newFood = { x: Math.floor(Math.random() * GRID) + 1, y: Math.floor(Math.random() * GRID) + 1 };
+      } while (this.snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
+      this.food = newFood;
+  }
+
+  private updateSpeed(): void {
+    const speedupCount = Math.floor(this.score / SPEEDUP_EVERY);
+    const newTickMs = Math.max(MIN_TICK_MS, INITIAL_TICK_MS - speedupCount * SPEEDUP_DELTA);
+    if (newTickMs !== this.tickMs) {
+        this.tickMs = newTickMs;
+    }
+  }
+
+  private moveSnake(): void {
+    if (!this.alive || this.paused) return;
+
+    // Apply pending direction if available
+    let currentDir = this.dir;
+    if (this.pendingDir) {
+        currentDir = this.pendingDir;
+        this.pendingDir = null; // Clear pending direction after use
+    }
+
+    const head = this.snake[0];
+    const newHead: Cell = { x: head.x + currentDir.x, y: head.y + currentDir.y };
+
+    // 1. Check Wall Collision (Game Over)
+    if (newHead.x < 1 || newHead.x >= GRID || newHead.y < 1 || newHead.y >= GRID) {
+      this.alive = false;
+      this.paused = true; // Stop the game loop immediately
+      return;
+    }
+
+    // 2. Check Self Collision (Game Over)
+    for (let i = 1; i < this.snake.length; i++) {
+      if (newHead.x === this.snake[i].x && newHead.y === this.snake[i].y) {
+        this.alive = false;
+        this.paused = true;
+        return;
+      }
+    }
+
+    // 3. Move the snake
+    this.snake.unshift(newHead);
+
+    // 4. Check for Food
+    if (newHead.x === this.food.x && newHead.y === this.food.y) {
+      this.score++;
+      this.updateSpeed();
+      this.spawnFood();
+    } else {
+      // If no food eaten, remove the tail
+      this.snake.pop();
+    }
+  }
+
+  public draw(): void { // Made public to fix TS error
+    this.ctx.fillStyle = '#000'; // Canvas background
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Draw Snake
+    this.snake.forEach((cell, index) => {
+      if (index === 0) {
+        this.ctx.fillStyle = '#7ed957'; // Head
+      } else {
+        this.ctx.fillStyle = '#3aa635'; // Body
+      }
+      // Cell coordinates are scaled by CELL size (20px)
+      this.ctx.fillRect(cell.x * CELL, cell.y * CELL, CELL, CELL);
+    });
+
+    // Draw Food
+    this.ctx.fillStyle = '#c0392b'; // Apple
+    this.ctx.fillRect(this.food.x * CELL, this.food.y * CELL, CELL, CELL);
+
+    // Draw UI Overlays (Centered)
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = '20px sans-serif';
+
+    if (!this.started) {
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Press Space to start', centerX, centerY);
+    } else if (this.paused) {
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Paused', centerX, centerY);
+    } else if (!this.alive) {
+        this.ctx.textAlign = 'center';
+        this.fillStyle = '#ff0000';
+        this.ctx.fillText('Game Over — press R to restart', centerX, centerY + 10);
+    }
+  }
+
+
+  public gameLoop(): void {
+    if (!this.alive || this.paused) {
+        this.draw(); // Ensure paused state is drawn correctly
+        return;
+    }
+
+    this.moveSnake();
+    this.draw();
+
+    // Schedule the next tick based on variable speed
+    setTimeout(() => this.gameLoop(), this.tickMs);
+  }
+}
+
+// --- Initialization ---
+
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const scoreEl = document.getElementById('score') as HTMLElement;
+const highEl = document.getElementById('high') as HTMLElement;
+
+if (canvas && scoreEl && highEl) {
+    const gameInstance = new Game(canvas, scoreEl, highEl);
+
+    // Start the initial draw state (paused)
+    gameInstance.draw();
+
+    // The game loop starts waiting for user input (Space)
+}
+```

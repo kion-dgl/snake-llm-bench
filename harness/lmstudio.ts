@@ -25,9 +25,8 @@ export async function generate(
     messages: [{ role: "user", content: prompt }],
     stream: true,
     temperature: 0.2,
+    max_tokens: Number(process.env.LMSTUDIO_MAX_TOKENS ?? 16384),
   };
-  const maxTokens = process.env.LMSTUDIO_MAX_TOKENS;
-  if (maxTokens) body.max_tokens = Number(maxTokens);
 
   const res = await fetch(ENDPOINT, {
     method: "POST",

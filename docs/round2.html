@@ -21,7 +21,7 @@
 </style>
 <h1>Snake LLM Bench <span style="font-size:14px;color:#888;font-weight:normal">— Round 2 — strict spec</span></h1>
 <div class=nav><a href="index.html">← Round 1</a> · <a href="https://github.com/kion-dgl/snake-llm-bench">source on github</a></div>
-<div class=meta>21 model groups · sorted by final score, then retries used, then base-call speed</div>
+<div class=meta>26 model groups · sorted by final score, then retries used, then base-call speed</div>
 <table>
 <thead><tr><th>Model</th><th>Final score</th><th>Trajectory (per try)</th><th>Total time</th><th>Total tokens</th><th>Notes</th><th>Files</th></tr></thead>
 <tbody><tr>
@@ -80,6 +80,14 @@
         <td>2.7k</td>
         <td class=notes></td>
         <td class=files><a href="runs2/google_gemma-4-26b-a4b-it__full/index.html">play</a> · <a href="runs2/google_gemma-4-26b-a4b-it__full/raw.txt">raw</a> · <a href="runs2/google_gemma-4-26b-a4b-it__full/plan.md">plan</a> · <a href="runs2/google_gemma-4-26b-a4b-it__full/score.json">score</a> · <a href="runs2/google_gemma-4-26b-a4b-it__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/google_gemma-4-31b-it__full/index.html">google/gemma-4-31b-it</a><div class=sub>full · <code>google_gemma-4-31b-it__full</code></div></td>
+        <td style="color:#7ed957;font-weight:600">13/13</td>
+        <td class=traj><span class=chip style="border-color:#7ed957;color:#7ed957">first-try 13/13</span></td>
+        <td>1m29s</td>
+        <td>2.2k</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/google_gemma-4-31b-it__full/index.html">play</a> · <a href="runs2/google_gemma-4-31b-it__full/raw.txt">raw</a> · <a href="runs2/google_gemma-4-31b-it__full/plan.md">plan</a> · <a href="runs2/google_gemma-4-31b-it__full/score.json">score</a> · <a href="runs2/google_gemma-4-31b-it__full/meta.json">meta</a></td>
       </tr><tr>
         <td><a href="runs2/kimi-k2.6_cloud__full/index.html">kimi-k2.6:cloud</a><div class=sub>full · <code>kimi-k2.6_cloud__full</code></div></td>
         <td style="color:#7ed957;font-weight:600">13/13</td>
@@ -177,6 +185,14 @@
         <td class=notes>failed: ts_compiles</td>
         <td class=files><a href="runs2/google_gemma-3-27b-it__full/index.html">play</a> · <a href="runs2/google_gemma-3-27b-it__full/raw.txt">raw</a> · <a href="runs2/google_gemma-3-27b-it__full/plan.md">plan</a> · <a href="runs2/google_gemma-3-27b-it__full__retry3/score.json">score</a> · <a href="runs2/google_gemma-3-27b-it__full/meta.json">meta</a></td>
       </tr><tr>
+        <td><a href="runs2/google_gemma-4-e2b__full/index.html">google/gemma-4-e2b</a><div class=sub>full · <code>google_gemma-4-e2b__full</code></div></td>
+        <td style="color:#e6c84c;font-weight:600">6/7</td>
+        <td class=traj><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="google_gemma-4-e2b__full">base 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="google_gemma-4-e2b__full__retry1">r1 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="google_gemma-4-e2b__full__retry2">r2 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="google_gemma-4-e2b__full__retry3">r3 6/7</span></td>
+        <td>9m42s<div class=sub>sum of 4 calls</div></td>
+        <td>—</td>
+        <td class=notes>failed: ts_compiles</td>
+        <td class=files><a href="runs2/google_gemma-4-e2b__full/index.html">play</a> · <a href="runs2/google_gemma-4-e2b__full/raw.txt">raw</a> · <a href="runs2/google_gemma-4-e2b__full/plan.md">plan</a> · <a href="runs2/google_gemma-4-e2b__full__retry3/score.json">score</a> · <a href="runs2/google_gemma-4-e2b__full/meta.json">meta</a></td>
+      </tr><tr>
         <td><a href="runs2/qwen3-coder-next_cloud__full/index.html">qwen3-coder-next:cloud</a><div class=sub>full · <code>qwen3-coder-next_cloud__full</code></div></td>
         <td style="color:#e6c84c;font-weight:600">6/7</td>
         <td class=traj><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="qwen3-coder-next_cloud__full">base 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="qwen3-coder-next_cloud__full__retry1">r1 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="qwen3-coder-next_cloud__full__retry2">r2 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="qwen3-coder-next_cloud__full__retry3">r3 6/7</span></td>
@@ -185,6 +201,22 @@
         <td class=notes>failed: ts_compiles</td>
         <td class=files><a href="runs2/qwen3-coder-next_cloud__full/index.html">play</a> · <a href="runs2/qwen3-coder-next_cloud__full/raw.txt">raw</a> · <a href="runs2/qwen3-coder-next_cloud__full/plan.md">plan</a> · <a href="runs2/qwen3-coder-next_cloud__full__retry3/score.json">score</a> · <a href="runs2/qwen3-coder-next_cloud__full/meta.json">meta</a></td>
       </tr><tr>
+        <td><a href="runs2/google_gemma-4-e4b__full/index.html">google/gemma-4-e4b</a><div class=sub>full · <code>google_gemma-4-e4b__full</code></div></td>
+        <td style="color:#666;font-weight:600">0/0</td>
+        <td class=traj><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="google_gemma-4-e4b__full">base 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="google_gemma-4-e4b__full__retry1">r1 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#e6c84c;color:#e6c84c" title="google_gemma-4-e4b__full__retry2">r2 6/7</span><span class=arrow>→</span><span class=chip style="border-color:#666;color:#666" title="google_gemma-4-e4b__full__retry3">r3 0/0</span></td>
+        <td>20m39s<div class=sub>sum of 4 calls</div></td>
+        <td>—</td>
+        <td class=notes></td>
+        <td class=files><a href="runs2/google_gemma-4-e4b__full/index.html">play</a> · <a href="runs2/google_gemma-4-e4b__full/raw.txt">raw</a> · <a href="runs2/google_gemma-4-e4b__full/plan.md">plan</a> · <a href="runs2/google_gemma-4-e4b__full__retry3/score.json">score</a> · <a href="runs2/google_gemma-4-e4b__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/google_gemma-4-26b-a4b__full/index.html">google/gemma-4-26b-a4b</a><div class=sub>full · <code>google_gemma-4-26b-a4b__full</code></div></td>
+        <td style="color:#e06c6c;font-weight:600">0/2</td>
+        <td class=traj><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="google_gemma-4-26b-a4b__full">base 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="google_gemma-4-26b-a4b__full__retry1">r1 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="google_gemma-4-26b-a4b__full__retry2">r2 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="google_gemma-4-26b-a4b__full__retry3">r3 0/2</span></td>
+        <td>32m50s<div class=sub>sum of 4 calls</div></td>
+        <td>—</td>
+        <td class=notes>failed: index_html_exists, snake_ts_exists</td>
+        <td class=files><a href="runs2/google_gemma-4-26b-a4b__full/index.html">play</a> · <a href="runs2/google_gemma-4-26b-a4b__full/raw.txt">raw</a> · <a href="runs2/google_gemma-4-26b-a4b__full/plan.md">plan</a> · <a href="runs2/google_gemma-4-26b-a4b__full__retry3/score.json">score</a> · <a href="runs2/google_gemma-4-26b-a4b__full/meta.json">meta</a></td>
+      </tr><tr>
         <td><a href="runs2/gemma4_26b__full/index.html">gemma4:26b</a><div class=sub>full · <code>gemma4_26b__full</code></div></td>
         <td style="color:#e06c6c;font-weight:600">0/2</td>
         <td class=traj><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="gemma4_26b__full">base 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="gemma4_26b__full__retry1">r1 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="gemma4_26b__full__retry2">r2 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="gemma4_26b__full__retry3">r3 0/2</span></td>
@@ -192,5 +224,13 @@
         <td>65.5k</td>
         <td class=notes>failed: index_html_exists, snake_ts_exists</td>
         <td class=files><a href="runs2/gemma4_26b__full/index.html">play</a> · <a href="runs2/gemma4_26b__full/raw.txt">raw</a> · <a href="runs2/gemma4_26b__full/plan.md">plan</a> · <a href="runs2/gemma4_26b__full__retry3/score.json">score</a> · <a href="runs2/gemma4_26b__full/meta.json">meta</a></td>
+      </tr><tr>
+        <td><a href="runs2/google_gemma-4-31b__full/index.html">google/gemma-4-31b</a><div class=sub>full · <code>google_gemma-4-31b__full</code></div></td>
+        <td style="color:#e06c6c;font-weight:600">0/2</td>
+        <td class=traj><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="google_gemma-4-31b__full">base 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="google_gemma-4-31b__full__retry1">r1 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="google_gemma-4-31b__full__retry2">r2 0/2</span><span class=arrow>→</span><span class=chip style="border-color:#e06c6c;color:#e06c6c" title="google_gemma-4-31b__full__retry3">r3 0/2</span></td>
+        <td>271m29s<div class=sub>sum of 4 calls</div></td>
+        <td>—</td>
+        <td class=notes>failed: snake_ts_exists</td>
+        <td class=files><a href="runs2/google_gemma-4-31b__full/index.html">play</a> · <a href="runs2/google_gemma-4-31b__full/raw.txt">raw</a> · <a href="runs2/google_gemma-4-31b__full/plan.md">plan</a> · <a href="runs2/google_gemma-4-31b__full__retry3/score.json">score</a> · <a href="runs2/google_gemma-4-31b__full/meta.json">meta</a></td>
       </tr></tbody>
 </table>
