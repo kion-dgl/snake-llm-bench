@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "lib": [
+      "DOM",
+      "ES2022"
+    ],
+    "types": [],
+    "typeRoots": [],
+    "skipLibCheck": true,
+    "noEmit": false,
+    "outDir": ".",
+    "noResolve": true
+  },
+  "files": [
+    "snake.ts"
+  ]
+}

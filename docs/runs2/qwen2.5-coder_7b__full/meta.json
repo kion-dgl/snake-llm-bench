@@ -1,0 +1,10 @@
+{
+  "model": "qwen2.5-coder:7b",
+  "role": "full",
+  "durationMs": 41297,
+  "promptEvalCount": 1407,
+  "evalCount": 1452,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T11:21:50.327Z",
+  "promptSource": "prompts/snake-spec.md"
+}

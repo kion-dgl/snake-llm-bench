@@ -1,0 +1,10 @@
+{
+  "model": "gemma4:e2b-it-q8_0",
+  "role": "full",
+  "durationMs": 135917,
+  "promptEvalCount": 1480,
+  "evalCount": 4039,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T03:34:58.956Z",
+  "promptSource": "prompts/snake-spec.md"
+}
