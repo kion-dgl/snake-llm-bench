@@ -1,0 +1,10 @@
+{
+  "model": "x-ai/grok-4.3",
+  "role": "skeleton",
+  "durationMs": 48945,
+  "promptEvalCount": 1896,
+  "evalCount": 2281,
+  "doneReason": null,
+  "timestamp": "2026-05-14T12:23:29.493Z",
+  "promptSource": "prompts/snake-skeleton.md"
+}

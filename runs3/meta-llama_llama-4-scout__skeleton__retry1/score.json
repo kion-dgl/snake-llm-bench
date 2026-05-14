@@ -1,0 +1,66 @@
+{
+  "runDir": "runs3/meta-llama_llama-4-scout__skeleton__retry1",
+  "total": 13,
+  "passed": 13,
+  "score": 1,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "score_label_present",
+      "pass": true
+    },
+    {
+      "name": "high_label_present",
+      "pass": true
+    },
+    {
+      "name": "class_game_present",
+      "pass": true
+    },
+    {
+      "name": "snake_high_key_present",
+      "pass": true
+    },
+    {
+      "name": "ts_compiles",
+      "pass": true
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "canvas_400x400",
+      "pass": true,
+      "detail": "400x400"
+    },
+    {
+      "name": "starts_paused",
+      "pass": true,
+      "detail": "-1724377805 -> -1724377805"
+    },
+    {
+      "name": "space_starts_game",
+      "pass": true,
+      "detail": "-1724377805 -> 337699804"
+    },
+    {
+      "name": "arrow_steers",
+      "pass": true,
+      "detail": "337699804 -> 2118564014"
+    },
+    {
+      "name": "r_restarts_to_zero",
+      "pass": true,
+      "detail": " Snake Score: 0 High: 0 Arrow keys or WASD to move · Space to start/pause · R to restart "
+    }
+  ]
+}

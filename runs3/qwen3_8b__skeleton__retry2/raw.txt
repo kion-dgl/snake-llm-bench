@@ -1,7 +1,0 @@
-```html
-<!-- index.html content -->
-```
-
-```typescript
-// snake.ts content
-```

@@ -1,0 +1,40 @@
+The task is to output exactly two fenced code blocks: first the HTML, then the TypeScript with all TODOs filled in.
+The task is to output exactly two fenced code blocks: first the HTML, then the TypeScript with all TODOs filled in.
+
+The HTML is given verbatim, so I copy that.
+
+For snake.ts, I need to fill in all the TODOs.
+
+I must not add new top-level state or class fields, except except a small public method setPendingDir if needed.
+
+The output must be exactly:
+
+```html
+
+...html...
+
+```
+
+```typescript
+
+...ts...
+
+```
+
+No prose before, between, or after.
+
+I need to implement the Game class properly.
+
+First, the constructor:
+
+// TODO: load high score from localStorage key key HIGH_KEY (parse Number, default 0) and call this.resetState() and this.render()
+
+Note it's HIGH_KEY = "snake.high";
+
+So, in constructor:
+
+this.high = Number(localStorage.getItem(HIGH_KEY)) || 0;
+
+this.resetState();
+
+this.

@@ -1,0 +1,11 @@
+{
+  "model": "x-ai/grok-4.3",
+  "role": "fixup",
+  "baseRun": "runs3/x-ai_grok-4.3__skeleton",
+  "attempt": 1,
+  "durationMs": 44483,
+  "promptEvalCount": 2186,
+  "evalCount": 3342,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T12:24:14.226Z"
+}

@@ -1,0 +1,50 @@
+The task is to fill in the TODOs in the Snake game skeleton for TypeScript with HTML5 Canvas.
+The user's message ends with the skeleton code and the reasoning trace below the "--" line. My task is to output exactly two fenced code blocks: first the HTML verbatim, then the complete snake.ts with all TODOs filled in.
+
+I need to fill in all the // TODO: sections based on the reasoning provided and my own logic to make it complete.
+
+First, the HTML block is verbatim as given.
+
+Then, the TypeScript block.
+
+Key points from the skeleton:
+
+- Constants like GRID, CELL, etc.
+
+- Class Game with private fields.
+
+- Constructor: load high score, resetState, render.
+
+Note: HIGH_KEY is defined (it's "snake.high")
+
+In constructor:
+
+this.high = Number(localStorage.getItem(HIGH_KEY)) || 0;
+
+But resetState sets score to 0, but not high.
+
+resetState doesn't touch high, good.
+
+For start():
+
+if (!this.started) {
+
+  this.started = true;
+
+  this.pa // incomplete in trace, but from logic.
+
+Let me compile the implementations.
+
+First, add the setPendingDir method since the hint suggests it for keydown.
+
+The skeleton allows adding a small public method.
+
+So, in class Game, add:
+
+public setPendingDir(dir: Direction): void {
+
+  this.pendingDir = dir;
+
+}
+
+No, to avoid opposite, but the check is in step.

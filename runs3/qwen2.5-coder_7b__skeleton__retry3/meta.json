@@ -1,0 +1,11 @@
+{
+  "model": "qwen2.5-coder:7b",
+  "role": "fixup",
+  "baseRun": "runs3/qwen2.5-coder_7b__skeleton",
+  "attempt": 3,
+  "durationMs": 57756,
+  "promptEvalCount": 4419,
+  "evalCount": 2101,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T12:44:31.286Z"
+}

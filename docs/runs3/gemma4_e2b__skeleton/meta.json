@@ -1,0 +1,10 @@
+{
+  "model": "gemma4:e2b",
+  "role": "skeleton",
+  "durationMs": 71500,
+  "promptEvalCount": 2061,
+  "evalCount": 3935,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T12:45:43.449Z",
+  "promptSource": "prompts/snake-skeleton.md"
+}

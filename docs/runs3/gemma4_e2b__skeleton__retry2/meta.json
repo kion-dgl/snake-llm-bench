@@ -1,0 +1,11 @@
+{
+  "model": "gemma4:e2b",
+  "role": "fixup",
+  "baseRun": "runs3/gemma4_e2b__skeleton",
+  "attempt": 2,
+  "durationMs": 71951,
+  "promptEvalCount": 5746,
+  "evalCount": 4179,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T12:48:09.768Z"
+}

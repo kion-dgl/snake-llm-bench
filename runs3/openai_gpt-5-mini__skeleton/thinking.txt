@@ -1,0 +1,19 @@
+**Implementing game logic**
+
+I need to implement the game logic and ensure that TypeScript is set to strict mode. I should use the localStorage key HIGH_KEY instead of HIG_KEY. In the constructor, I will load the high score from localStorage, using parseInt or Number and defaulting to 0. After that, I'll reset the state and render. I'll also have to add a public setPendingDir method. The game.timer will be of type number|null and I'll use window.setInterval for the timer. The start() method must only start the game if it hasn’t already and will toggle pause with the Space key.**Implementing game mechanics**
+
+When not started, I need to behave like the start() method. For unpausing, I'll re-arm the interval, and for pausing, I’ll clear it. So, if the game isn’t started, I’ll call start(). If the game is started and paused, I’ll unpause if alive; if not alive, maybe I’ll do nothing. If it’s started and not paused, I’ll proceed to pause. 
+
+For the restart() method, I'll clear the interval, reset the state, and re-render. In the step() method, I’ll apply pendingDir if it’s not opposite. I'll check for wall and self-collisions; if the new head hits a wall or collides with itself, it’ll be a problem. I might need a better name for wouldCollide, as it seems a bit confusing.**Checking for collisions**
+
+I need to ensure the implementation returns true when a collision might occur. The documentation states that it should return true if the cell is inside the grid and not occupied by the snake, excluding the tail when not growing. So, the wouldCollide function returns a boolean indicating whether the cell is safe. In the step method, I’ll check if wouldCollide(newHead, willGrow) is false, indicating a collision.
+
+For food, if the new head matches the food coordinates, I’ll grow by pushing the new head to the front and updating the score. I need to spawn new food and adjust the tickMs after every SPEEDUP_EVERY foods eaten by decreasing it with SPEEDUP_DELTA, making sure not to go below MIN_TICK_MS. If the timer is active, I have to remember to clear and set a new interval, storing the timer ID properly.**Handling collisions and game state**
+
+If there’s no food, I’ll push the new head to the front and pop the tail. On collision, I’ll set alive to false, clear the interval, and render a game over overlay.
+
+For resetState, I need to set the snake length to 3 at specific coordinates, with an initial direction of right. PendingDir will be null, score at 0, tickMs will start at INITIAL_TICK_MS, and alive, started, and paused will all be appropriately defined. Then, I’ll spawn food by identifying free cells not occupied by the snake. If no empty cells exist, I treat it as a win. When updating the score display, I’ll set the text to show the current score and high score. While rendering, I’ll clear the canvas, compute the cell size, and draw the food and snake body segments accurately.**Managing game states and controls**
+
+For the game state, I’ll show "Press Space to start" if not yet started, "Paused" if paused, and "Game Over — press R to restart" when the game is over. The text style will be set appropriately, centering it on the canvas.
+
+In the wouldCollide function, I'll check if the next position is within the grid and not occupied by the snake, excluding the tail when growing. I’ll also need to set up key mappings for direction and manage the game controls, ensuring I can track the pending direction properly. It's important to handle pauses and restarts seamlessly. Additionally, I'll update the score display whenever necessary and check for win conditions. Finally, I must be careful to implement the intervals for game speed and ensure proper handling of the game state.

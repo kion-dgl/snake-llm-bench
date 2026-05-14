@@ -1,0 +1,10 @@
+{
+  "model": "x-ai/grok-code-fast-1",
+  "role": "skeleton",
+  "durationMs": 60716,
+  "promptEvalCount": 2018,
+  "evalCount": 4888,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T12:22:37.723Z",
+  "promptSource": "prompts/snake-skeleton.md"
+}

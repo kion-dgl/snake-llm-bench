@@ -1,0 +1,10 @@
+{
+  "model": "google/gemini-2.5-flash",
+  "role": "skeleton",
+  "durationMs": 16209,
+  "promptEvalCount": 2027,
+  "evalCount": 3700,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T12:21:16.304Z",
+  "promptSource": "prompts/snake-skeleton.md"
+}

@@ -1,0 +1,10 @@
+{
+  "model": "openai/gpt-5-mini",
+  "role": "skeleton",
+  "durationMs": 63674,
+  "promptEvalCount": 1842,
+  "evalCount": 5404,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T12:22:03.769Z",
+  "promptSource": "prompts/snake-skeleton.md"
+}

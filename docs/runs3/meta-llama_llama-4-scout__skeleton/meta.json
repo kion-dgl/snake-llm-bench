@@ -1,0 +1,10 @@
+{
+  "model": "meta-llama/llama-4-scout",
+  "role": "skeleton",
+  "durationMs": 11103,
+  "promptEvalCount": 1896,
+  "evalCount": 2412,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T12:21:27.234Z",
+  "promptSource": "prompts/snake-skeleton.md"
+}

@@ -2,19 +2,16 @@
 
 You are implementing a Snake game in vanilla TypeScript + HTML5 Canvas. The architecture, types, signatures, and HTML are already given below. **Your only job is to fill in the bodies marked `// TODO:`** and write the top-level glue. Do not change the surface (types, signatures, constants, field names, class shape).
 
-Output exactly two fenced code blocks, in this order, nothing else:
+## Output format
 
-```html
-<!-- index.html, verbatim from below -->
-```
+Produce exactly two fenced code blocks in this order, with no prose before, between, or after:
 
-```typescript
-// snake.ts with all TODOs filled in
-```
+1. A fenced **html** block containing the complete `index.html` from the section below (copy it verbatim, including all CSS and the script tag).
+2. A fenced **typescript** block containing the complete `snake.ts` (the skeleton below with every `// TODO:` body filled in).
 
 ---
 
-## index.html (use this verbatim — do not modify)
+## index.html — copy this verbatim into your first code block
 
 ```html
 <!doctype html>
