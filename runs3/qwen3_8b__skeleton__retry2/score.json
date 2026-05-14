@@ -1,0 +1,66 @@
+{
+  "runDir": "runs3/qwen3_8b__skeleton__retry2",
+  "total": 13,
+  "passed": 4,
+  "score": 0.3076923076923077,
+  "results": [
+    {
+      "name": "index_html_exists",
+      "pass": true
+    },
+    {
+      "name": "snake_ts_exists",
+      "pass": true
+    },
+    {
+      "name": "score_label_present",
+      "pass": false
+    },
+    {
+      "name": "high_label_present",
+      "pass": false
+    },
+    {
+      "name": "class_game_present",
+      "pass": false
+    },
+    {
+      "name": "snake_high_key_present",
+      "pass": false
+    },
+    {
+      "name": "ts_compiles",
+      "pass": true
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "canvas_400x400",
+      "pass": false,
+      "detail": "no canvas"
+    },
+    {
+      "name": "starts_paused",
+      "pass": false,
+      "detail": "no canvas"
+    },
+    {
+      "name": "space_starts_game",
+      "pass": false,
+      "detail": "no canvas"
+    },
+    {
+      "name": "arrow_steers",
+      "pass": false,
+      "detail": "no canvas"
+    },
+    {
+      "name": "r_restarts_to_zero",
+      "pass": false,
+      "detail": "no canvas"
+    }
+  ]
+}

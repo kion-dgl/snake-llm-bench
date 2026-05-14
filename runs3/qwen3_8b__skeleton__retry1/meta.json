@@ -1,0 +1,11 @@
+{
+  "model": "qwen3:8b",
+  "role": "fixup",
+  "baseRun": "runs3/qwen3_8b__skeleton",
+  "attempt": 1,
+  "durationMs": 234185,
+  "promptEvalCount": 2187,
+  "evalCount": 6929,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T12:12:28.975Z"
+}

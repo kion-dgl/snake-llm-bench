@@ -1,0 +1,10 @@
+{
+  "model": "qwen3:8b",
+  "role": "skeleton",
+  "durationMs": 218061,
+  "promptEvalCount": 1838,
+  "evalCount": 6518,
+  "doneReason": "stop",
+  "timestamp": "2026-05-14T12:08:33.556Z",
+  "promptSource": "prompts/snake-skeleton.md"
+}

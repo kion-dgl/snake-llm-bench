@@ -1,0 +1,9 @@
+```html
+<!-- index.html, verbatim from below -->
+``
+```
+
+```typescript
+// snake.ts with all TODOs filled in
+``
+```

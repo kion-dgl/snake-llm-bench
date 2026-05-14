@@ -1,0 +1,128 @@
+import { generate as ollamaGenerate, slugifyModel } from "./ollama.ts";
+import { generate as openrouterGenerate } from "./openrouter.ts";
+import { generate as lmstudioGenerate } from "./lmstudio.ts";
+import { extractCode } from "./prompts.ts";
+import { scoreRunV2 } from "./score-round2.ts";
+import { spawn } from "node:child_process";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { join } from "node:path";
+
+const SPEC_FILE = "prompts/snake-skeleton.md";
+const ROUND_DIR = "runs3";
+const MAX_RETRIES = 3;
+
+function pickProvider(model: string) {
+  if (process.env.PROVIDER === "lmstudio") return lmstudioGenerate;
+  return model.includes("/") ? openrouterGenerate : ollamaGenerate;
+}
+
+function arg(flag: string): string | undefined {
+  const i = Bun.argv.indexOf(flag);
+  return i >= 0 ? Bun.argv[i + 1] : undefined;
+}
+
+async function fixup(runDir: string) {
+  const proc = spawn("bun", [
+    "harness/fixup.ts",
+    "--base", runDir,
+    "--max-retries", String(MAX_RETRIES),
+    "--spec-file", SPEC_FILE,
+    "--round", "2",  // score-round2 checks apply unchanged
+  ], { stdio: "inherit" });
+  await new Promise<void>((r) => proc.on("close", () => r()));
+}
+
+async function runOne(model: string) {
+  const slug = `${slugifyModel(model)}__skeleton`;
+  const runDir = join(ROUND_DIR, slug);
+  await mkdir(runDir, { recursive: true });
+  const prompt = await readFile(SPEC_FILE, "utf8");
+  const generate = pickProvider(model);
+  console.log(`\n=== ${model} ===`);
+  console.log(`calling ${model}...`);
+  const result = await generate(model, prompt);
+  console.log(`  done in ${(result.durationMs / 1000).toFixed(1)}s, ${result.evalCount ?? "?"} tokens, stop=${result.doneReason ?? "?"}`);
+
+  await writeFile(join(runDir, "prompt.txt"), prompt);
+  await writeFile(join(runDir, "raw.txt"), result.response);
+  if (result.thinking) await writeFile(join(runDir, "thinking.txt"), result.thinking);
+  await writeFile(join(runDir, "meta.json"), JSON.stringify({
+    model, role: "skeleton",
+    durationMs: Math.round(result.durationMs),
+    promptEvalCount: result.promptEvalCount ?? null,
+    evalCount: result.evalCount ?? null,
+    doneReason: result.doneReason ?? null,
+    timestamp: new Date().toISOString(),
+    promptSource: SPEC_FILE,
+  }, null, 2));
+
+  const { html, ts } = extractCode(result.response);
+  if (!html || !ts) {
+    console.error(`  WARNING: failed to extract code blocks (html=${!!html}, ts=${!!ts})`);
+    await writeFile(join(runDir, "score.json"), JSON.stringify({
+      runDir, passed: 0, total: 2, score: 0,
+      results: [
+        { name: "index_html_exists", pass: !!html },
+        { name: "snake_ts_exists", pass: !!ts },
+      ],
+    }, null, 2));
+  } else {
+    await writeFile(join(runDir, "index.html"), html);
+    await writeFile(join(runDir, "snake.ts"), ts);
+    const score = await scoreRunV2(runDir);
+    console.log(`  scored ${score.passed}/${score.total}`);
+    if (score.passed === score.total) return;
+  }
+  await fixup(runDir);
+}
+
+async function main() {
+  const single = arg("--model");
+  const skip = (arg("--skip") ?? "").split(",").filter(Boolean);
+  const parallel = Number(arg("--parallel") ?? "1");
+
+  const models = single ? [single] : [
+    // local
+    "qwen3:8b",
+    "qwen2.5-coder:7b",
+    "gemma4:e2b",
+    "gpt-oss:20b",
+    // small cloud
+    "google/gemini-2.5-flash",
+    "anthropic/claude-haiku-4-5",
+    "openai/gpt-5-mini",
+    "meta-llama/llama-4-scout",
+    "x-ai/grok-code-fast-1",
+    // round-2-passing reference points
+    "google/gemma-4-26b-a4b-it",
+    "x-ai/grok-4.3",
+  ].filter((m) => !skip.includes(m));
+
+  if (parallel <= 1) {
+    for (const m of models) {
+      try { await runOne(m); }
+      catch (e) { console.error(`  ${m} failed: ${(e as Error).message}`); }
+    }
+    return;
+  }
+
+  // concurrency-limited queue
+  const queue = [...models];
+  const inflight = new Set<Promise<void>>();
+  while (queue.length || inflight.size) {
+    while (inflight.size < parallel && queue.length) {
+      const m = queue.shift()!;
+      console.log(`[start] ${m}  (inflight=${inflight.size + 1}/${parallel}, queued=${queue.length})`);
+      const p = runOne(m)
+        .catch((e) => console.error(`  ${m} failed: ${(e as Error).message}`))
+        .finally(() => {
+          inflight.delete(p);
+          console.log(`[done]  ${m}  (inflight=${inflight.size}, queued=${queue.length})`);
+        });
+      inflight.add(p);
+    }
+    if (inflight.size) await Promise.race(inflight);
+  }
+}
+
+main();
